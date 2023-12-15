@@ -1,6 +1,8 @@
 from httpx_sse import connect_sse
 import httpx
 import llm
+from pydantic import Field
+from typing import Optional
 
 
 @llm.hookimpl
@@ -12,6 +14,39 @@ def register_models(register):
 
 class Mistral(llm.Model):
     can_stream = True
+
+    class Options(llm.Options):
+        temperature: Optional[float] = Field(
+            description=(
+                "Determines the sampling temperature. Higher values like 0.8 increase randomness, "
+                "while lower values like 0.2 make the output more focused and deterministic."
+            ),
+            ge=0,
+            le=1,
+            default=0.7,
+        )
+        top_p: Optional[float] = Field(
+            description=(
+                "Nucleus sampling, where the model considers the tokens with top_p probability mass. "
+                "For example, 0.1 means considering only the tokens in the top 10% probability mass."
+            ),
+            ge=0,
+            le=1,
+            default=1,
+        )
+        max_tokens: Optional[int] = Field(
+            description="The maximum number of tokens to generate in the completion.",
+            ge=0,
+            default=None,
+        )
+        safe_mode: Optional[bool] = Field(
+            description="Whether to inject a safety prompt before all conversations.",
+            default=False,
+        )
+        random_seed: Optional[int] = Field(
+            description="Sets the seed for random sampling to generate deterministic results.",
+            default=None,
+        )
 
     def __init__(self, model_id):
         self.model_id = model_id
@@ -48,6 +83,16 @@ class Mistral(llm.Model):
             "model": self.model_id,
             "messages": messages,
         }
+        if prompt.options.temperature:
+            body["temperature"] = prompt.options.temperature
+        if prompt.options.top_p:
+            body["top_p"] = prompt.options.top_p
+        if prompt.options.max_tokens:
+            body["max_tokens"] = prompt.options.max_tokens
+        if prompt.options.safe_mode:
+            body["safe_mode"] = prompt.options.safe_mode
+        if prompt.options.random_seed:
+            body["random_seed"] = prompt.options.random_seed
         if stream:
             body["stream"] = True
             with httpx.Client() as client:

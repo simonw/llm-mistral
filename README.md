@@ -49,6 +49,16 @@ To use a system prompt with `mistral-medium` to explain some code:
 cat example.py | llm -m mistral-medium -s 'explain this code'
 ```
 
+## Options
+
+All three models accept the following options, using `-o name value` syntax:
+
+- `-o temperature 0.7`: The sampling temperature, between 0 and 1. Higher increases randomness, lower values are more focused and deterministic.
+- `-o top_p 0.1`: 0.1 means consider only tokens in the top 10% probability mass. Use this or temperature but not both.
+- `-o max_tokens 20`: Maximum number of tokens to generate in the completion.
+- `-o safe_mode 1`: Turns on [safe mode](https://docs.mistral.ai/platform/guardrailing/), which adds a system prompt to add guardrails to the model output.
+- `-o random_seed 123`: Set an integer random seed to generate deterministic results.
+
 ## Development
 
 To set up this plugin locally, first checkout the code. Then create a new virtual environment:
