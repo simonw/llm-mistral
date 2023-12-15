@@ -1,0 +1,27 @@
+[project]
+name = "llm-mistral"
+version = "0.1"
+description = "LLM plugin providing access to Mistral models busing the Mistral API"
+readme = "README.md"
+authors = [{name = "Simon Willison"}]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "License :: OSI Approved :: Apache Software License"
+]
+dependencies = [
+    "llm",
+    "httpx",
+    "httpx-sse",
+]
+
+[project.urls]
+Homepage = "https://github.com/simonw/llm-mistral"
+Changelog = "https://github.com/simonw/llm-mistral/releases"
+Issues = "https://github.com/simonw/llm-mistral/issues"
+CI = "https://github.com/simonw/llm-mistral/actions"
+
+[project.entry-points.llm]
+mistral = "llm_mistral"
+
+[project.optional-dependencies]
+test = ["pytest"]
