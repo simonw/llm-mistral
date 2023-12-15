@@ -12,6 +12,11 @@ def register_models(register):
     register(Mistral("mistral-medium"))
 
 
+@llm.hookimpl
+def register_embedding_models(register):
+    register(MistralEmbed())
+
+
 class Mistral(llm.Model):
     can_stream = True
 
@@ -131,3 +136,28 @@ class Mistral(llm.Model):
                 api_response.raise_for_status()
                 yield api_response.json()["choices"][0]["message"]["content"]
                 response.response_json = api_response.json()
+
+
+class MistralEmbed(llm.EmbeddingModel):
+    model_id = "mistral-embed"
+    batch_size = 10
+
+    def embed_batch(self, texts):
+        key = llm.get_key("", "mistral", "LLM_MISTRAL_KEY")
+        with httpx.Client() as client:
+            api_response = client.post(
+                "https://api.mistral.ai/v1/embeddings",
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {key}",
+                },
+                json={
+                    "model": "mistral-embed",
+                    "input": list(texts),
+                    "encoding_format": "float",
+                },
+                timeout=None,
+            )
+            api_response.raise_for_status()
+            return [item["embedding"] for item in api_response.json()["data"]]

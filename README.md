@@ -49,7 +49,7 @@ To use a system prompt with `mistral-medium` to explain some code:
 cat example.py | llm -m mistral-medium -s 'explain this code'
 ```
 
-## Options
+## Model options
 
 All three models accept the following options, using `-o name value` syntax:
 
@@ -58,6 +58,21 @@ All three models accept the following options, using `-o name value` syntax:
 - `-o max_tokens 20`: Maximum number of tokens to generate in the completion.
 - `-o safe_mode 1`: Turns on [safe mode](https://docs.mistral.ai/platform/guardrailing/), which adds a system prompt to add guardrails to the model output.
 - `-o random_seed 123`: Set an integer random seed to generate deterministic results.
+
+## Embeddings
+
+The Mistral [Embeddings API](https://docs.mistral.ai/platform/client#embeddings) can be used to generate 1,024 dimensional embeddings for any text.
+
+To embed a single string:
+
+```bash
+llm embed -m mistral-embed -c 'this is text'
+```
+This will return a JSON array of 1,024 floating point numbers.
+
+The [LLM documentation](https://llm.datasette.io/en/stable/embeddings/index.html) has more, including how to embed in bulk and store the results in a SQLite database.
+
+See [LLM now provides tools for working with embeddings](https://simonwillison.net/2023/Sep/4/llm-embeddings/) and [Embeddings: What they are and why they matter](https://simonwillison.net/2023/Oct/23/embeddings/) for more about embeddings.
 
 ## Development
 
