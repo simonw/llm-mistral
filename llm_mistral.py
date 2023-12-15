@@ -61,6 +61,7 @@ class Mistral(llm.Model):
                         "Authorization": f"Bearer {key}",
                     },
                     json=body,
+                    timeout=None,
                 ) as event_source:
                     # In case of unauthorized:
                     event_source.response.raise_for_status()
@@ -80,6 +81,7 @@ class Mistral(llm.Model):
                         "Authorization": f"Bearer {key}",
                     },
                     json=body,
+                    timeout=None,
                 )
                 api_response.raise_for_status()
                 yield api_response.json()["choices"][0]["message"]["content"]
