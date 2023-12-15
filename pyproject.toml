@@ -24,4 +24,4 @@ CI = "https://github.com/simonw/llm-mistral/actions"
 mistral = "llm_mistral"
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "pytest-httpx"]
