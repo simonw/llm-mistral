@@ -81,7 +81,7 @@ class Mistral(llm.Model):
         return messages
 
     def execute(self, prompt, stream, response, conversation):
-        key = llm.get_key("", "mistral", "LLM_MISTRAL_KEY")
+        key = llm.get_key("", "mistral", "LLM_MISTRAL_KEY") or getattr(self, "key", None)
         messages = self.build_messages(prompt, conversation)
         response._prompt_json = {"messages": messages}
         body = {
