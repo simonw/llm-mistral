@@ -24,7 +24,7 @@ llm keys set mistral
 ```
 <paste key here>
 ```
-You can now access the three Mistral hosted models: `mistral-tiny`, `mistral-small` and `mistral-medium`.
+You can now access the Mistral hosted models. Run `llm models` for a list.
 
 To run a prompt through `mistral-tiny`:
 

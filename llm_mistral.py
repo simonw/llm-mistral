@@ -1,20 +1,85 @@
+import click
 from httpx_sse import connect_sse
 import httpx
+import json
 import llm
 from pydantic import Field
 from typing import Optional
 
 
+DEFAULT_ALIASES = {
+    "mistral/mistral-tiny": "mistral-tiny",
+    "mistral/mistral-small": "mistral-small",
+    "mistral/mistral-medium": "mistral-medium",
+    "mistral/mistral-large-latest": "mistral-large",
+}
+
+
 @llm.hookimpl
 def register_models(register):
-    register(Mistral("mistral-tiny"))
-    register(Mistral("mistral-small"))
-    register(Mistral("mistral-medium"))
+    for model_id in get_model_ids():
+        our_model_id = "mistral/" + model_id
+        alias = DEFAULT_ALIASES.get(our_model_id)
+        aliases = [alias] if alias else []
+        register(Mistral(our_model_id, model_id), aliases=aliases)
 
 
 @llm.hookimpl
 def register_embedding_models(register):
     register(MistralEmbed())
+
+
+def refresh_models():
+    user_dir = llm.user_dir()
+    mistral_models = user_dir / "mistral_models.json"
+    key = llm.get_key("", "mistral", "LLM_MISTRAL_KEY")
+    if not key:
+        raise click.ClickException(
+            "You must set the 'mistral' key or the LLM_MISTRAL_KEY environment variable."
+        )
+    response = httpx.get(
+        "https://api.mistral.ai/v1/models", headers={"Authorization": f"Bearer {key}"}
+    )
+    response.raise_for_status()
+    models = response.json()
+    mistral_models.write_text(json.dumps(models, indent=2))
+    return models
+
+
+def get_model_ids():
+    user_dir = llm.user_dir()
+    mistral_models = user_dir / "mistral_models.json"
+    if mistral_models.exists():
+        models = json.loads(mistral_models.read_text())
+    else:
+        models = refresh_models()
+    return [model["id"] for model in models["data"] if "embed" not in model["id"]]
+
+
+@llm.hookimpl
+def register_commands(cli):
+    @cli.group()
+    def mistral():
+        "Commands relating to the llm-mistral plugin"
+
+    @mistral.command()
+    def refresh():
+        "Refresh the list of available Mistral models"
+        before = set(get_model_ids())
+        refresh_models()
+        after = set(get_model_ids())
+        added = after - before
+        removed = before - after
+        if added:
+            click.echo(f"Added models: {', '.join(added)}", err=True)
+        if removed:
+            click.echo(f"Removed models: {', '.join(removed)}", err=True)
+        if added or removed:
+            click.echo("New list of models:", err=True)
+            for model_id in get_model_ids():
+                click.echo(model_id, err=True)
+        else:
+            click.echo("No changes", err=True)
 
 
 class Mistral(llm.Model):
@@ -53,8 +118,9 @@ class Mistral(llm.Model):
             default=None,
         )
 
-    def __init__(self, model_id):
-        self.model_id = model_id
+    def __init__(self, our_model_id, mistral_model_id):
+        self.model_id = our_model_id
+        self.mistral_model_id = mistral_model_id
 
     def build_messages(self, prompt, conversation):
         messages = []
@@ -85,7 +151,7 @@ class Mistral(llm.Model):
         messages = self.build_messages(prompt, conversation)
         response._prompt_json = {"messages": messages}
         body = {
-            "model": self.model_id,
+            "model": self.mistral_model_id,
             "messages": messages,
         }
         if prompt.options.temperature:
