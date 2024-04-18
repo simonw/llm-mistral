@@ -48,7 +48,6 @@ To use a system prompt with `mistral-medium` to explain some code:
 ```bash
 cat example.py | llm -m mistral-medium -s 'explain this code'
 ```
-
 ## Model options
 
 All three models accept the following options, using `-o name value` syntax:
@@ -58,6 +57,16 @@ All three models accept the following options, using `-o name value` syntax:
 - `-o max_tokens 20`: Maximum number of tokens to generate in the completion.
 - `-o safe_mode 1`: Turns on [safe mode](https://docs.mistral.ai/platform/guardrailing/), which adds a system prompt to add guardrails to the model output.
 - `-o random_seed 123`: Set an integer random seed to generate deterministic results.
+
+## Refreshing the model list
+
+Mistral sometimes release new models.
+
+To make those models available to an existing installation of `llm-mistral` run this command:
+```bash
+llm mistral refresh
+```
+This will fetch and cache the latest list of available models. They should then become available in the output of the `llm models` command.
 
 ## Embeddings
 
