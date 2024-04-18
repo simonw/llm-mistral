@@ -51,8 +51,10 @@ def get_model_ids():
     mistral_models = user_dir / "mistral_models.json"
     if mistral_models.exists():
         models = json.loads(mistral_models.read_text())
-    else:
+    elif llm.get_key("", "mistral", "LLM_MISTRAL_KEY"):
         models = refresh_models()
+    else:
+        models = {"data": []}
     return [model["id"] for model in models["data"] if "embed" not in model["id"]]
 
 
@@ -147,7 +149,9 @@ class Mistral(llm.Model):
         return messages
 
     def execute(self, prompt, stream, response, conversation):
-        key = llm.get_key("", "mistral", "LLM_MISTRAL_KEY") or getattr(self, "key", None)
+        key = llm.get_key("", "mistral", "LLM_MISTRAL_KEY") or getattr(
+            self, "key", None
+        )
         messages = self.build_messages(prompt, conversation)
         response._prompt_json = {"messages": messages}
         body = {
