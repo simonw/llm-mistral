@@ -12,6 +12,8 @@ DEFAULT_ALIASES = {
     "mistral/mistral-small": "mistral-small",
     "mistral/mistral-medium": "mistral-medium",
     "mistral/mistral-large-latest": "mistral-large",
+    "mistral/codestral-mamba-latest": "codestral-mamba",
+    "mistral/codestral-latest": "codestral",
 }
 
 
