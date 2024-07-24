@@ -9,6 +9,7 @@ from typing import Optional
 
 DEFAULT_ALIASES = {
     "mistral/mistral-tiny": "mistral-tiny",
+    "mistral/open-mistral-nemo": "mistral-nemo",
     "mistral/mistral-small": "mistral-small",
     "mistral/mistral-medium": "mistral-medium",
     "mistral/mistral-large-latest": "mistral-large",
