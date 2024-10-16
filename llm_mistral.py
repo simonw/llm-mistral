@@ -15,6 +15,8 @@ DEFAULT_ALIASES = {
     "mistral/mistral-large-latest": "mistral-large",
     "mistral/codestral-mamba-latest": "codestral-mamba",
     "mistral/codestral-latest": "codestral",
+    "mistral/ministral-3b-latest": "ministral-3b",
+    "mistral/ministral-8b-latest": "ministral-8b",
 }
 
 
