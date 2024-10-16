@@ -53,18 +53,20 @@ def refresh_models():
 
 def get_model_ids():
     user_dir = llm.user_dir()
+    models = {
+        "data": [
+            {"id": model_id.replace("mistral/", "")}
+            for model_id in DEFAULT_ALIASES.keys()
+        ]
+    }
     mistral_models = user_dir / "mistral_models.json"
     if mistral_models.exists():
         models = json.loads(mistral_models.read_text())
     elif llm.get_key("", "mistral", "LLM_MISTRAL_KEY"):
-        models = refresh_models()
-    else:
-        models = {
-            "data": [
-                {"id": model_id.replace("mistral/", "")}
-                for model_id in DEFAULT_ALIASES.keys()
-            ]
-        }
+        try:
+            models = refresh_models()
+        except httpx.HTTPStatusError:
+            pass
     return [model["id"] for model in models["data"] if "embed" not in model["id"]]
 
 
