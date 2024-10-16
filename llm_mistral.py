@@ -59,7 +59,12 @@ def get_model_ids():
     elif llm.get_key("", "mistral", "LLM_MISTRAL_KEY"):
         models = refresh_models()
     else:
-        models = {"data": [{"id": model_id} for model_id in DEFAULT_ALIASES.values()]}
+        models = {
+            "data": [
+                {"id": model_id.replace("mistral/", "")}
+                for model_id in DEFAULT_ALIASES.keys()
+            ]
+        }
     return [model["id"] for model in models["data"] if "embed" not in model["id"]]
 
 
