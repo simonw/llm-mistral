@@ -17,16 +17,19 @@ DEFAULT_ALIASES = {
     "mistral/codestral-latest": "codestral",
     "mistral/ministral-3b-latest": "ministral-3b",
     "mistral/ministral-8b-latest": "ministral-8b",
+    "mistral/pixtral-12b": "pixtral-12b",
 }
 
 
 @llm.hookimpl
 def register_models(register):
-    for model_id in get_model_ids():
+    for model in get_model_details():
+        model_id = model["id"]
+        vision = model.get("capabilities", {}).get("vision")
         our_model_id = "mistral/" + model_id
         alias = DEFAULT_ALIASES.get(our_model_id)
         aliases = [alias] if alias else []
-        register(Mistral(our_model_id, model_id), aliases=aliases)
+        register(Mistral(our_model_id, model_id, vision), aliases=aliases)
 
 
 @llm.hookimpl
@@ -51,7 +54,7 @@ def refresh_models():
     return models
 
 
-def get_model_ids():
+def get_model_details():
     user_dir = llm.user_dir()
     models = {
         "data": [
@@ -67,7 +70,11 @@ def get_model_ids():
             models = refresh_models()
         except httpx.HTTPStatusError:
             pass
-    return [model["id"] for model in models["data"] if "embed" not in model["id"]]
+    return [model for model in models["data"] if "embed" not in model["id"]]
+
+
+def get_model_ids():
+    return [model["id"] for model in get_model_details()]
 
 
 @llm.hookimpl
@@ -134,17 +141,41 @@ class Mistral(llm.Model):
             default=None,
         )
 
-    def __init__(self, our_model_id, mistral_model_id):
+    def __init__(self, our_model_id, mistral_model_id, vision):
         self.model_id = our_model_id
         self.mistral_model_id = mistral_model_id
+        if vision:
+            self.attachment_types = {
+                "image/jpeg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+            }
 
     def build_messages(self, prompt, conversation):
         messages = []
+        latest_message = None
+        if prompt.attachments:
+            latest_message = {
+                "role": "user",
+                "content": [{"type": "text", "text": prompt.prompt}]
+                + [
+                    {
+                        "type": "image_url",
+                        "image_url": attachment.url
+                        or f"data:{attachment.resolve_type()};base64,{attachment.base64_content()}",
+                    }
+                    for attachment in prompt.attachments
+                ],
+            }
+        else:
+            latest_message = {"role": "user", "content": prompt.prompt}
         if not conversation:
             if prompt.system:
                 messages.append({"role": "system", "content": prompt.system})
-            messages.append({"role": "user", "content": prompt.prompt})
+            messages.append(latest_message)
             return messages
+
         current_system = None
         for prev_response in conversation.responses:
             if (
@@ -155,11 +186,35 @@ class Mistral(llm.Model):
                     {"role": "system", "content": prev_response.prompt.system}
                 )
                 current_system = prev_response.prompt.system
-            messages.append({"role": "user", "content": prev_response.prompt.prompt})
+            if prev_response.attachments:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prev_response.prompt.prompt,
+                            }
+                        ]
+                        + [
+                            {
+                                "type": "image_url",
+                                "image_url": attachment.url
+                                or f"data:{attachment.resolve_type()};base64,{attachment.base64_content()}",
+                            }
+                            for attachment in prev_response.attachments
+                        ],
+                    }
+                )
+            else:
+                messages.append(
+                    {"role": "user", "content": prev_response.prompt.prompt}
+                )
             messages.append({"role": "assistant", "content": prev_response.text()})
         if prompt.system and prompt.system != current_system:
             messages.append({"role": "system", "content": prompt.system})
-        messages.append({"role": "user", "content": prompt.prompt})
+
+        messages.append(latest_message)
         return messages
 
     def execute(self, prompt, stream, response, conversation):
@@ -196,6 +251,23 @@ class Mistral(llm.Model):
                     timeout=None,
                 ) as event_source:
                     # In case of unauthorized:
+                    if event_source.response.status_code != 200:
+                        # Try to make this a readable error, it may have a base64 chunk
+                        try:
+                            decoded = json.loads(event_source.response.read())
+                            type = decoded["type"]
+                            words = decoded["message"].split()
+                        except (json.JSONDecodeError, KeyError):
+                            click.echo(
+                                event_source.response.read().decode()[:200], err=True
+                            )
+                            event_source.response.raise_for_status()
+                        # Truncate any words longer than 30 characters
+                        words = [word[:30] for word in words]
+                        message = " ".join(words)
+                        raise click.ClickException(
+                            f"{event_source.response.status_code}: {type} - {message}"
+                        )
                     event_source.response.raise_for_status()
                     for sse in event_source.iter_sse():
                         if sse.data != "[DONE]":
