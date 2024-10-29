@@ -48,6 +48,15 @@ To use a system prompt with `mistral-medium` to explain some code:
 ```bash
 cat example.py | llm -m mistral-medium -s 'explain this code'
 ```
+## Vision
+
+The `pixtral-12b` model is capable of interpreting images. You can use that like this:
+
+```bash
+llm -m pixtral-12b 'describe this image' -a https://static.simonwillison.net/static/2024/earth.jpg
+```
+You can also pass filenames instead of URLs.
+
 ## Model options
 
 All three models accept the following options, using `-o name value` syntax:
