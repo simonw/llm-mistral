@@ -98,6 +98,8 @@ def register_commands(cli):
 
 class Mistral(llm.Model):
     can_stream = True
+    needs_key = "mistral"
+    key_env_var = "LLM_MISTRAL_KEY"
 
     class Options(llm.Options):
         temperature: Optional[float] = Field(
@@ -161,9 +163,7 @@ class Mistral(llm.Model):
         return messages
 
     def execute(self, prompt, stream, response, conversation):
-        key = llm.get_key("", "mistral", "LLM_MISTRAL_KEY") or getattr(
-            self, "key", None
-        )
+        key = self.get_key()
         messages = self.build_messages(prompt, conversation)
         response._prompt_json = {"messages": messages}
         body = {
@@ -223,9 +223,11 @@ class Mistral(llm.Model):
 class MistralEmbed(llm.EmbeddingModel):
     model_id = "mistral-embed"
     batch_size = 10
+    needs_key = "mistral"
+    key_env_var = "LLM_MISTRAL_KEY"
 
     def embed_batch(self, texts):
-        key = llm.get_key("", "mistral", "LLM_MISTRAL_KEY")
+        key = self.get_key()
         with httpx.Client() as client:
             api_response = client.post(
                 "https://api.mistral.ai/v1/embeddings",
