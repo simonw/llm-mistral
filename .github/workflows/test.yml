@@ -25,4 +25,6 @@ jobs:
     - name: Run tests
       run: |
         pytest
-
+    - name: Check if cog is needed
+      run: |
+        cog --check README.md
