@@ -89,6 +89,32 @@ def mocked_stream(httpx_mock):
     return httpx_mock
 
 
+@pytest.fixture
+def mocked_no_stream(httpx_mock):
+    httpx_mock.add_response(
+        url="https://api.mistral.ai/v1/chat/completions",
+        method="POST",
+        json={
+            "id": "cmpl-362653b3050c4939bfa423af5f97709b",
+            "object": "chat.completion",
+            "created": 1702614202,
+            "model": "mistral-tiny",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "I'm just a computer program, I don't have feelings.",
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 16, "total_tokens": 79, "completion_tokens": 63},
+        },
+    )
+    return httpx_mock
+
+
 def test_stream(mocked_stream):
     model = llm.get_model("mistral-tiny")
     response = model.prompt("How are you?")
@@ -102,6 +128,30 @@ def test_stream(mocked_stream):
         "top_p": 1,
         "stream": True,
     }
+
+
+@pytest.mark.asyncio
+async def test_stream_async(mocked_stream):
+    model = llm.get_async_model("mistral-tiny")
+    response = await model.prompt("How are you?")
+    chunks = [item async for item in response]
+    assert chunks == ["I am an AI"]
+    request = mocked_stream.get_request()
+    assert json.loads(request.content) == {
+        "model": "mistral-tiny",
+        "messages": [{"role": "user", "content": "How are you?"}],
+        "temperature": 0.7,
+        "top_p": 1,
+        "stream": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_async_no_stream(mocked_no_stream):
+    model = llm.get_async_model("mistral-tiny")
+    response = await model.prompt("How are you?", stream=False)
+    text = await response.text()
+    assert text == "I'm just a computer program, I don't have feelings."
 
 
 def test_stream_with_options(mocked_stream):
@@ -127,28 +177,7 @@ def test_stream_with_options(mocked_stream):
     }
 
 
-def test_no_stream(httpx_mock):
-    httpx_mock.add_response(
-        url="https://api.mistral.ai/v1/chat/completions",
-        method="POST",
-        json={
-            "id": "cmpl-362653b3050c4939bfa423af5f97709b",
-            "object": "chat.completion",
-            "created": 1702614202,
-            "model": "mistral-tiny",
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": "I'm just a computer program, I don't have feelings.",
-                    },
-                    "finish_reason": "stop",
-                }
-            ],
-            "usage": {"prompt_tokens": 16, "total_tokens": 79, "completion_tokens": 63},
-        },
-    )
+def test_no_stream(mocked_no_stream):
     model = llm.get_model("mistral-tiny")
     response = model.prompt("How are you?", stream=False)
     assert response.text() == "I'm just a computer program, I don't have feelings."

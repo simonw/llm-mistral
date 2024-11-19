@@ -1,5 +1,5 @@
 import click
-from httpx_sse import connect_sse
+from httpx_sse import connect_sse, aconnect_sse
 import httpx
 import json
 import llm
@@ -29,7 +29,11 @@ def register_models(register):
         our_model_id = "mistral/" + model_id
         alias = DEFAULT_ALIASES.get(our_model_id)
         aliases = [alias] if alias else []
-        register(Mistral(our_model_id, model_id, vision), aliases=aliases)
+        register(
+            Mistral(our_model_id, model_id, vision),
+            AsyncMistral(our_model_id, model_id, vision),
+            aliases=aliases,
+        )
 
 
 @llm.hookimpl
@@ -103,7 +107,7 @@ def register_commands(cli):
             click.echo("No changes", err=True)
 
 
-class Mistral(llm.Model):
+class _Shared:
     can_stream = True
     needs_key = "mistral"
     key_env_var = "LLM_MISTRAL_KEY"
@@ -210,17 +214,16 @@ class Mistral(llm.Model):
                 messages.append(
                     {"role": "user", "content": prev_response.prompt.prompt}
                 )
-            messages.append({"role": "assistant", "content": prev_response.text()})
+            messages.append(
+                {"role": "assistant", "content": prev_response.text_or_raise()}
+            )
         if prompt.system and prompt.system != current_system:
             messages.append({"role": "system", "content": prompt.system})
 
         messages.append(latest_message)
         return messages
 
-    def execute(self, prompt, stream, response, conversation):
-        key = self.get_key()
-        messages = self.build_messages(prompt, conversation)
-        response._prompt_json = {"messages": messages}
+    def build_body(self, prompt, messages):
         body = {
             "model": self.mistral_model_id,
             "messages": messages,
@@ -235,6 +238,15 @@ class Mistral(llm.Model):
             body["safe_mode"] = prompt.options.safe_mode
         if prompt.options.random_seed:
             body["random_seed"] = prompt.options.random_seed
+        return body
+
+
+class Mistral(_Shared, llm.Model):
+    def execute(self, prompt, stream, response, conversation):
+        key = self.get_key()
+        messages = self.build_messages(prompt, conversation)
+        response._prompt_json = {"messages": messages}
+        body = self.build_body(prompt, messages)
         if stream:
             body["stream"] = True
             with httpx.Client() as client:
@@ -278,6 +290,69 @@ class Mistral(llm.Model):
         else:
             with httpx.Client() as client:
                 api_response = client.post(
+                    "https://api.mistral.ai/v1/chat/completions",
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "Authorization": f"Bearer {key}",
+                    },
+                    json=body,
+                    timeout=None,
+                )
+                api_response.raise_for_status()
+                yield api_response.json()["choices"][0]["message"]["content"]
+                response.response_json = api_response.json()
+
+
+class AsyncMistral(_Shared, llm.AsyncModel):
+    async def execute(self, prompt, stream, response, conversation):
+        key = self.get_key()
+        messages = self.build_messages(prompt, conversation)
+        response._prompt_json = {"messages": messages}
+        body = self.build_body(prompt, messages)
+        if stream:
+            body["stream"] = True
+            async with httpx.AsyncClient() as client:
+                async with aconnect_sse(
+                    client,
+                    "POST",
+                    "https://api.mistral.ai/v1/chat/completions",
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "Authorization": f"Bearer {key}",
+                    },
+                    json=body,
+                    timeout=None,
+                ) as event_source:
+                    # In case of unauthorized:
+                    if event_source.response.status_code != 200:
+                        # Try to make this a readable error, it may have a base64 chunk
+                        try:
+                            decoded = json.loads(event_source.response.read())
+                            type = decoded["type"]
+                            words = decoded["message"].split()
+                        except (json.JSONDecodeError, KeyError):
+                            click.echo(
+                                event_source.response.read().decode()[:200], err=True
+                            )
+                            event_source.response.raise_for_status()
+                        # Truncate any words longer than 30 characters
+                        words = [word[:30] for word in words]
+                        message = " ".join(words)
+                        raise click.ClickException(
+                            f"{event_source.response.status_code}: {type} - {message}"
+                        )
+                    event_source.response.raise_for_status()
+                    async for sse in event_source.aiter_sse():
+                        if sse.data != "[DONE]":
+                            try:
+                                yield sse.json()["choices"][0]["delta"]["content"]
+                            except KeyError:
+                                pass
+        else:
+            async with httpx.AsyncClient() as client:
+                api_response = await client.post(
                     "https://api.mistral.ai/v1/chat/completions",
                     headers={
                         "Content-Type": "application/json",

@@ -9,7 +9,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "llm>=0.17",
+    "llm>=0.18",
     "httpx",
     "httpx-sse",
 ]
@@ -24,4 +24,4 @@ CI = "https://github.com/simonw/llm-mistral/actions"
 mistral = "llm_mistral"
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-httpx"]
+test = ["pytest", "pytest-httpx", "pytest-asyncio"]
