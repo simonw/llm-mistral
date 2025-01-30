@@ -10,7 +10,11 @@ from typing import Optional
 DEFAULT_ALIASES = {
     "mistral/mistral-tiny": "mistral-tiny",
     "mistral/open-mistral-nemo": "mistral-nemo",
-    "mistral/mistral-small": "mistral-small",
+    "mistral/mistral-small-2312": "mistral-small-2312",
+    "mistral/mistral-small-2402": "mistral-small-2402",
+    "mistral/mistral-small-2409": "mistral-small-2409",
+    "mistral/mistral-small-2501": "mistral-small-2501",
+    "mistral/mistral-small-latest": "mistral-small",
     "mistral/mistral-medium": "mistral-medium",
     "mistral/mistral-large-latest": "mistral-large",
     "mistral/codestral-mamba-latest": "codestral-mamba",
