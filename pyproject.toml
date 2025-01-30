@@ -1,6 +1,6 @@
 [project]
 name = "llm-mistral"
-version = "0.9"
+version = "0.10"
 description = "LLM plugin providing access to Mistral models busing the Mistral API"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
