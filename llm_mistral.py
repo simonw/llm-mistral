@@ -149,6 +149,10 @@ class _Shared:
             description="Sets the seed for random sampling to generate deterministic results.",
             default=None,
         )
+        prefix: Optional[str] = Field(
+            description="A prefix to prepend to the response.",
+            default=None,
+        )
 
     def __init__(self, our_model_id, mistral_model_id, vision):
         self.model_id = our_model_id
@@ -183,6 +187,14 @@ class _Shared:
             if prompt.system:
                 messages.append({"role": "system", "content": prompt.system})
             messages.append(latest_message)
+            if prompt.options.prefix:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": prompt.options.prefix,
+                        "prefix": True,
+                    }
+                )
             return messages
 
         current_system = None
@@ -226,6 +238,10 @@ class _Shared:
             messages.append({"role": "system", "content": prompt.system})
 
         messages.append(latest_message)
+        if prompt.options.prefix:
+            messages.append(
+                {"role": "assistant", "content": prompt.options.prefix, "prefix": True}
+            )
         return messages
 
     def build_body(self, prompt, messages):
