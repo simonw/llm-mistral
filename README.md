@@ -66,6 +66,7 @@ All three models accept the following options, using `-o name value` syntax:
 - `-o max_tokens 20`: Maximum number of tokens to generate in the completion.
 - `-o safe_mode 1`: Turns on [safe mode](https://docs.mistral.ai/platform/guardrailing/), which adds a system prompt to add guardrails to the model output.
 - `-o random_seed 123`: Set an integer random seed to generate deterministic results.
+- `-o prefix 'Prefix here`: Set a prefix that will be used for the start of the response. Try `{` to encourage JSON or `GlaDOS: ` to encourage a roleplay from a specific character.
 
 Mistral models (with the exception of `codestral-mamba`) also support [schemas](https://llm.datasette.io/en/stable/schemas.html):
 ```bash
