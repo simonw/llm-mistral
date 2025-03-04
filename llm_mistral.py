@@ -281,9 +281,8 @@ class _Shared:
         )
 
 
-class Mistral(_Shared, llm.Model):
-    def execute(self, prompt, stream, response, conversation):
-        key = self.get_key()
+class Mistral(_Shared, llm.KeyModel):
+    def execute(self, prompt, stream, response, conversation, key):
         messages = self.build_messages(prompt, conversation)
         response._prompt_json = {"messages": messages}
         body = self.build_body(prompt, messages)
@@ -354,9 +353,8 @@ class Mistral(_Shared, llm.Model):
                     self.set_usage(response, usage)
 
 
-class AsyncMistral(_Shared, llm.AsyncModel):
-    async def execute(self, prompt, stream, response, conversation):
-        key = self.get_key()
+class AsyncMistral(_Shared, llm.AsyncKeyModel):
+    async def execute(self, prompt, stream, response, conversation, key):
         messages = self.build_messages(prompt, conversation)
         response._prompt_json = {"messages": messages}
         body = self.build_body(prompt, messages)
