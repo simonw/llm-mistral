@@ -50,23 +50,19 @@ cat example.py | llm -m mistral-medium -s 'explain this code'
 ```
 ## Vision
 
-The `pixtral-12b` model is capable of interpreting images. You can use that like this:
+The Pixtral models are capable of interpreting images. You can use those like this:
 
 ```bash
-llm -m pixtral-12b 'describe this image' -a https://static.simonwillison.net/static/2024/earth.jpg
+llm -m pixtral-large 'describe this image' \
+  -a https://static.simonwillison.net/static/2025/two-pelicans.jpg
 ```
-You can also pass filenames instead of URLs.
+Output:
 
-## Model options
+> This image features two pelicans in flight against a clear blue sky. Pelicans are large water birds known for their long beaks and distinctive throat pouches, which they use for catching fish. In this photo, the birds are flying close to each other, showcasing their expansive wings and characteristic beaks. The clear sky provides a stark contrast, highlighting the details of their feathers and the graceful curves of their wings. The image captures a moment of synchronicity and elegance in nature.
 
-All three models accept the following options, using `-o name value` syntax:
+You can pass filenames instead of URLs.
 
-- `-o temperature 0.7`: The sampling temperature, between 0 and 1. Higher increases randomness, lower values are more focused and deterministic.
-- `-o top_p 0.1`: 0.1 means consider only tokens in the top 10% probability mass. Use this or temperature but not both.
-- `-o max_tokens 20`: Maximum number of tokens to generate in the completion.
-- `-o safe_mode 1`: Turns on [safe mode](https://docs.mistral.ai/platform/guardrailing/), which adds a system prompt to add guardrails to the model output.
-- `-o random_seed 123`: Set an integer random seed to generate deterministic results.
-- `-o prefix 'Prefix here`: Set a prefix that will be used for the start of the response. Try `{` to encourage JSON or `GlaDOS: ` to encourage a roleplay from a specific character.
+## Schemas
 
 Mistral models (with the exception of `codestral-mamba`) also support [schemas](https://llm.datasette.io/en/stable/schemas.html):
 ```bash
@@ -79,14 +75,17 @@ Output:
   "bio": "A futuristic dog with glowing cybernetic enhancements and the ability to hack into any system."
 }
 ```
-The Pixtral models support image attachments:
-```bash
-llm -m pixtral-large 'describe this image' \
-  -a https://static.simonwillison.net/static/2025/two-pelicans.jpg
-```
-Output:
 
-> This image features two pelicans in flight against a clear blue sky. Pelicans are large water birds known for their long beaks and distinctive throat pouches, which they use for catching fish. In this photo, the birds are flying close to each other, showcasing their expansive wings and characteristic beaks. The clear sky provides a stark contrast, highlighting the details of their feathers and the graceful curves of their wings. The image captures a moment of synchronicity and elegance in nature.
+## Model options
+
+All three models accept the following options, using `-o name value` syntax:
+
+- `-o temperature 0.7`: The sampling temperature, between 0 and 1. Higher increases randomness, lower values are more focused and deterministic.
+- `-o top_p 0.1`: 0.1 means consider only tokens in the top 10% probability mass. Use this or temperature but not both.
+- `-o max_tokens 20`: Maximum number of tokens to generate in the completion.
+- `-o safe_mode 1`: Turns on [safe mode](https://docs.mistral.ai/platform/guardrailing/), which adds a system prompt to add guardrails to the model output.
+- `-o random_seed 123`: Set an integer random seed to generate deterministic results.
+- `-o prefix 'Prefix here`: Set a prefix that will be used for the start of the response. Try `{` to encourage JSON or `GlaDOS: ` to encourage a roleplay from a specific character.
 
 ## Available models
 
