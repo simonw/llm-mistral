@@ -377,12 +377,13 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                     if event_source.response.status_code != 200:
                         # Try to make this a readable error, it may have a base64 chunk
                         try:
-                            decoded = json.loads(event_source.response.read())
+                            decoded = json.loads(await event_source.response.aread())
                             type = decoded["type"]
                             words = decoded["message"].split()
                         except (json.JSONDecodeError, KeyError):
                             click.echo(
-                                event_source.response.read().decode()[:200], err=True
+                                (await event_source.response.aread()).decode()[:200],
+                                err=True,
                             )
                             event_source.response.raise_for_status()
                         # Truncate any words longer than 30 characters
