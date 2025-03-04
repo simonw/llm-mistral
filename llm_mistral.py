@@ -34,9 +34,10 @@ def register_models(register):
         our_model_id = "mistral/" + model_id
         alias = DEFAULT_ALIASES.get(our_model_id)
         aliases = [alias] if alias else []
+        schemas = "codestral-mamba" not in model_id
         register(
-            Mistral(our_model_id, model_id, vision),
-            AsyncMistral(our_model_id, model_id, vision),
+            Mistral(our_model_id, model_id, vision, schemas),
+            AsyncMistral(our_model_id, model_id, vision, schemas),
             aliases=aliases,
         )
 
@@ -149,8 +150,12 @@ class _Shared:
             description="Sets the seed for random sampling to generate deterministic results.",
             default=None,
         )
+        prefix: Optional[str] = Field(
+            description="A prefix to prepend to the response.",
+            default=None,
+        )
 
-    def __init__(self, our_model_id, mistral_model_id, vision):
+    def __init__(self, our_model_id, mistral_model_id, vision, schemas):
         self.model_id = our_model_id
         self.mistral_model_id = mistral_model_id
         if vision:
@@ -160,6 +165,7 @@ class _Shared:
                 "image/gif",
                 "image/webp",
             }
+        self.supports_schema = schemas
 
     def build_messages(self, prompt, conversation):
         messages = []
@@ -167,7 +173,7 @@ class _Shared:
         if prompt.attachments:
             latest_message = {
                 "role": "user",
-                "content": [{"type": "text", "text": prompt.prompt}]
+                "content": [{"type": "text", "text": prompt.prompt or ""}]
                 + [
                     {
                         "type": "image_url",
@@ -183,6 +189,14 @@ class _Shared:
             if prompt.system:
                 messages.append({"role": "system", "content": prompt.system})
             messages.append(latest_message)
+            if prompt.options.prefix:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": prompt.options.prefix,
+                        "prefix": True,
+                    }
+                )
             return messages
 
         current_system = None
@@ -226,6 +240,10 @@ class _Shared:
             messages.append({"role": "system", "content": prompt.system})
 
         messages.append(latest_message)
+        if prompt.options.prefix:
+            messages.append(
+                {"role": "assistant", "content": prompt.options.prefix, "prefix": True}
+            )
         return messages
 
     def build_body(self, prompt, messages):
@@ -243,6 +261,17 @@ class _Shared:
             body["safe_mode"] = prompt.options.safe_mode
         if prompt.options.random_seed:
             body["random_seed"] = prompt.options.random_seed
+        if prompt.schema:
+            # Mistral complains if additionalProperties: False is missing
+            prompt.schema["additionalProperties"] = False
+            body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "schema": prompt.schema,
+                    "strict": True,
+                    "name": "data",
+                },
+            }
         return body
 
     def set_usage(self, response, usage):
