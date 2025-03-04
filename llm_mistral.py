@@ -173,7 +173,7 @@ class _Shared:
         if prompt.attachments:
             latest_message = {
                 "role": "user",
-                "content": [{"type": "text", "text": prompt.prompt}]
+                "content": [{"type": "text", "text": prompt.prompt or ''}]
                 + [
                     {
                         "type": "image_url",
