@@ -125,6 +125,34 @@ llm mistral refresh
 ```
 This will fetch and cache the latest list of available models. They should then become available in the output of the `llm models` command.
 
+## Mistral Agents
+
+You can use Mistral agents with this plugin. First, add an agent using its ID:
+
+```bash
+llm mistral agents add ag:4ed8fe86:20250307:glados:f95894f0 -a glados
+```
+
+The `-a` option adds an alias for the agent, which you can use when running commands. You can specify multiple aliases by using `-a` multiple times.
+
+To list your registered agents:
+
+```bash
+llm mistral agents list
+```
+
+To remove an agent:
+
+```bash
+llm mistral agents remove ag:4ed8fe86:20250307:glados:f95894f0
+```
+
+Once an agent is registered, you can use it just like any other model:
+
+```bash
+llm -m glados 'Tell me about cake'
+```
+
 ## Embeddings
 
 The Mistral [Embeddings API](https://docs.mistral.ai/platform/client#embeddings) can be used to generate 1,024 dimensional embeddings for any text.

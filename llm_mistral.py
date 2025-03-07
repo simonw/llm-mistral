@@ -4,7 +4,8 @@ import httpx
 import json
 import llm
 from pydantic import Field
-from typing import Optional
+from typing import Optional, List
+from pathlib import Path
 
 
 DEFAULT_ALIASES = {
@@ -28,6 +29,7 @@ DEFAULT_ALIASES = {
 
 @llm.hookimpl
 def register_models(register):
+    # Register standard models
     for model in get_model_details():
         model_id = model["id"]
         vision = model.get("capabilities", {}).get("vision")
@@ -38,6 +40,17 @@ def register_models(register):
         register(
             Mistral(our_model_id, model_id, vision, schemas),
             AsyncMistral(our_model_id, model_id, vision, schemas),
+            aliases=aliases,
+        )
+
+    # Register agents
+    for agent in get_agents():
+        agent_id = agent["agent_id"]
+        our_model_id = f"mistral-agent/{agent_id}"
+        aliases = agent.get("aliases", [])
+        register(
+            Mistral(our_model_id, None, True, True, agent_id),
+            AsyncMistral(our_model_id, None, True, True, agent_id),
             aliases=aliases,
         )
 
@@ -87,6 +100,25 @@ def get_model_ids():
     return [model["id"] for model in get_model_details()]
 
 
+def get_agents():
+    """Get the list of saved Mistral agents."""
+    user_dir = llm.user_dir()
+    agents_file = user_dir / "mistral_agents.json"
+    if not agents_file.exists():
+        return []
+    try:
+        return json.loads(agents_file.read_text())
+    except json.JSONDecodeError:
+        return []
+
+
+def save_agents(agents):
+    """Save the list of Mistral agents to the JSON file."""
+    user_dir = llm.user_dir()
+    agents_file = user_dir / "mistral_agents.json"
+    agents_file.write_text(json.dumps(agents, indent=2))
+
+
 @llm.hookimpl
 def register_commands(cli):
     @cli.group()
@@ -111,6 +143,67 @@ def register_commands(cli):
                 click.echo(model_id, err=True)
         else:
             click.echo("No changes", err=True)
+
+    @mistral.group()
+    def agents():
+        "Commands for managing Mistral agents"
+
+    @agents.command(name="add")
+    @click.argument("agent_id")
+    @click.option("-a", "--alias", multiple=True, help="Alias for this agent")
+    def agents_add(agent_id, alias):
+        "Add a Mistral agent"
+        agents = get_agents()
+
+        # Check if the agent already exists
+        for existing_agent in agents:
+            if existing_agent["agent_id"] == agent_id:
+                existing_aliases = existing_agent.get("aliases", [])
+                for a in alias:
+                    if a not in existing_aliases:
+                        existing_aliases.append(a)
+                existing_agent["aliases"] = existing_aliases
+                save_agents(agents)
+                click.echo(f"Updated agent: {agent_id}", err=True)
+                if existing_aliases:
+                    click.echo(f"Aliases: {', '.join(existing_aliases)}", err=True)
+                return
+
+        # Add new agent
+        new_agent = {"agent_id": agent_id, "aliases": list(alias) if alias else []}
+        agents.append(new_agent)
+        save_agents(agents)
+        click.echo(f"Added agent: {agent_id}", err=True)
+        if alias:
+            click.echo(f"Aliases: {', '.join(alias)}", err=True)
+
+    @agents.command(name="list")
+    def agents_list():
+        "List all registered Mistral agents"
+        agents = get_agents()
+        if not agents:
+            click.echo("No agents registered", err=True)
+            return
+
+        for agent in agents:
+            agent_id = agent["agent_id"]
+            aliases = agent.get("aliases", [])
+            alias_str = f" (aliases: {', '.join(aliases)})" if aliases else ""
+            click.echo(f"{agent_id}{alias_str}", err=True)
+
+    @agents.command(name="remove")
+    @click.argument("agent_id")
+    def agents_remove(agent_id):
+        "Remove a Mistral agent"
+        agents = get_agents()
+        before_count = len(agents)
+        agents = [agent for agent in agents if agent["agent_id"] != agent_id]
+
+        if len(agents) < before_count:
+            save_agents(agents)
+            click.echo(f"Removed agent: {agent_id}", err=True)
+        else:
+            click.echo(f"Agent not found: {agent_id}", err=True)
 
 
 class _Shared:
@@ -155,9 +248,10 @@ class _Shared:
             default=None,
         )
 
-    def __init__(self, our_model_id, mistral_model_id, vision, schemas):
+    def __init__(self, our_model_id, mistral_model_id, vision, schemas, agent_id=None):
         self.model_id = our_model_id
         self.mistral_model_id = mistral_model_id
+        self.agent_id = agent_id
         if vision:
             self.attachment_types = {
                 "image/jpeg",
@@ -248,13 +342,20 @@ class _Shared:
 
     def build_body(self, prompt, messages):
         body = {
-            "model": self.mistral_model_id,
             "messages": messages,
         }
-        if prompt.options.temperature:
-            body["temperature"] = prompt.options.temperature
-        if prompt.options.top_p:
-            body["top_p"] = prompt.options.top_p
+
+        # Add model or agent_id depending on which is being used
+        if self.agent_id:
+            body["agent_id"] = self.agent_id
+        else:
+            body["model"] = self.mistral_model_id
+
+        if not self.agent_id:
+            if prompt.options.temperature:
+                body["temperature"] = prompt.options.temperature
+            if prompt.options.top_p:
+                body["top_p"] = prompt.options.top_p
         if prompt.options.max_tokens:
             body["max_tokens"] = prompt.options.max_tokens
         if prompt.options.safe_mode:
@@ -286,13 +387,21 @@ class Mistral(_Shared, llm.KeyModel):
         messages = self.build_messages(prompt, conversation)
         response._prompt_json = {"messages": messages}
         body = self.build_body(prompt, messages)
+
+        # Choose the appropriate endpoint based on whether this is an agent or model
+        endpoint = (
+            "https://api.mistral.ai/v1/agents/completions"
+            if self.agent_id
+            else "https://api.mistral.ai/v1/chat/completions"
+        )
+
         if stream:
             body["stream"] = True
             with httpx.Client() as client:
                 with connect_sse(
                     client,
                     "POST",
-                    "https://api.mistral.ai/v1/chat/completions",
+                    endpoint,
                     headers={
                         "Content-Type": "application/json",
                         "Accept": "application/json",
@@ -335,7 +444,7 @@ class Mistral(_Shared, llm.KeyModel):
         else:
             with httpx.Client() as client:
                 api_response = client.post(
-                    "https://api.mistral.ai/v1/chat/completions",
+                    endpoint,
                     headers={
                         "Content-Type": "application/json",
                         "Accept": "application/json",
@@ -358,13 +467,21 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
         messages = self.build_messages(prompt, conversation)
         response._prompt_json = {"messages": messages}
         body = self.build_body(prompt, messages)
+
+        # Choose the appropriate endpoint based on whether this is an agent or model
+        endpoint = (
+            "https://api.mistral.ai/v1/agents/completions"
+            if self.agent_id
+            else "https://api.mistral.ai/v1/chat/completions"
+        )
+
         if stream:
             body["stream"] = True
             async with httpx.AsyncClient() as client:
                 async with aconnect_sse(
                     client,
                     "POST",
-                    "https://api.mistral.ai/v1/chat/completions",
+                    endpoint,
                     headers={
                         "Content-Type": "application/json",
                         "Accept": "application/json",
@@ -408,7 +525,7 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
         else:
             async with httpx.AsyncClient() as client:
                 api_response = await client.post(
-                    "https://api.mistral.ai/v1/chat/completions",
+                    endpoint,
                     headers={
                         "Content-Type": "application/json",
                         "Accept": "application/json",
