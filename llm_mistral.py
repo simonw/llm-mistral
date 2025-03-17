@@ -94,6 +94,11 @@ def register_commands(cli):
         "Commands relating to the llm-mistral plugin"
 
     @mistral.command()
+    def models():
+        "List of available Mistral models in JSON"
+        click.echo(json.dumps(get_model_details(), indent=2))
+
+    @mistral.command()
     def refresh():
         "Refresh the list of available Mistral models"
         before = set(get_model_ids())
