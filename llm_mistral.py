@@ -321,7 +321,7 @@ class Mistral(_Shared, llm.KeyModel):
                         # Truncate any words longer than 30 characters
                         words = [word[:30] for word in words]
                         message = " ".join(words)
-                        raise click.ClickException(
+                        raise llm.ModelError(
                             f"{event_source.response.status_code}: {type} - {message}"
                         )
                     usage = None
@@ -394,7 +394,7 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                         # Truncate any words longer than 30 characters
                         words = [word[:30] for word in words]
                         message = " ".join(words)
-                        raise click.ClickException(
+                        raise llm.ModelError(
                             f"{event_source.response.status_code}: {type} - {message}"
                         )
                     event_source.response.raise_for_status()
