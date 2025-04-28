@@ -311,7 +311,7 @@ class Mistral(_Shared, llm.KeyModel):
                         # Try to make this a readable error, it may have a base64 chunk
                         try:
                             decoded = json.loads(event_source.response.read())
-                            type = decoded["type"]
+                            type = decoded.get("type", "UnknownType")
                             words = decoded["message"].split()
                         except (json.JSONDecodeError, KeyError):
                             click.echo(
@@ -383,7 +383,7 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                         # Try to make this a readable error, it may have a base64 chunk
                         try:
                             decoded = json.loads(await event_source.response.aread())
-                            type = decoded["type"]
+                            type = decoded.get("type", "UnknownType")
                             words = decoded["message"].split()
                         except (json.JSONDecodeError, KeyError):
                             click.echo(
