@@ -35,9 +35,10 @@ def register_models(register):
         alias = DEFAULT_ALIASES.get(our_model_id)
         aliases = [alias] if alias else []
         schemas = "codestral-mamba" not in model_id
+        pdf = "-ocr" in model_id
         register(
-            Mistral(our_model_id, model_id, vision, schemas),
-            AsyncMistral(our_model_id, model_id, vision, schemas),
+            Mistral(our_model_id, model_id, vision, schemas, pdf=pdf),
+            AsyncMistral(our_model_id, model_id, vision, schemas, pdf=pdf),
             aliases=aliases,
         )
 
@@ -160,16 +161,21 @@ class _Shared:
             default=None,
         )
 
-    def __init__(self, our_model_id, mistral_model_id, vision, schemas):
+    def __init__(self, our_model_id, mistral_model_id, vision, schemas, pdf=False):
         self.model_id = our_model_id
         self.mistral_model_id = mistral_model_id
+        self.attachment_types = set()
         if vision:
-            self.attachment_types = {
-                "image/jpeg",
-                "image/png",
-                "image/gif",
-                "image/webp",
-            }
+            self.attachment_types.update(
+                {
+                    "image/jpeg",
+                    "image/png",
+                    "image/gif",
+                    "image/webp",
+                }
+            )
+        if pdf:
+            self.attachment_types.add("application/pdf")
         self.supports_schema = schemas
 
     def build_messages(self, prompt, conversation):
