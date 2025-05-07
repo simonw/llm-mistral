@@ -313,7 +313,7 @@ class Mistral(_Shared, llm.KeyModel):
                         # Try to make this a readable error, it may have a base64 chunk
                         try:
                             decoded = json.loads(event_source.response.read())
-                            type = decoded["type"]
+                            type = decoded.get("type", "UnknownType")
                             words = decoded["message"].split()
                         except (json.JSONDecodeError, KeyError):
                             click.echo(
@@ -323,7 +323,7 @@ class Mistral(_Shared, llm.KeyModel):
                         # Truncate any words longer than 30 characters
                         words = [word[:30] for word in words]
                         message = " ".join(words)
-                        raise click.ClickException(
+                        raise llm.ModelError(
                             f"{event_source.response.status_code}: {type} - {message}"
                         )
                     usage = None
@@ -385,7 +385,7 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                         # Try to make this a readable error, it may have a base64 chunk
                         try:
                             decoded = json.loads(await event_source.response.aread())
-                            type = decoded["type"]
+                            type = decoded.get("type", "UnknownType")
                             words = decoded["message"].split()
                         except (json.JSONDecodeError, KeyError):
                             click.echo(
@@ -396,7 +396,7 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                         # Truncate any words longer than 30 characters
                         words = [word[:30] for word in words]
                         message = " ".join(words)
-                        raise click.ClickException(
+                        raise llm.ModelError(
                             f"{event_source.response.status_code}: {type} - {message}"
                         )
                     event_source.response.raise_for_status()
