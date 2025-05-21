@@ -114,6 +114,7 @@ for model_id, alias in DEFAULT_ALIASES.items():
 - `ministral-8b` for `mistral/ministral-8b-latest`
 - `pixtral-12b` for `mistral/pixtral-12b-latest`
 - `pixtral-large` for `mistral/pixtral-large-latest`
+- `devstral-small` for `mistral/devstral-small-latest`
 <!-- [[[end]]] -->
 
 
