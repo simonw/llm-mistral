@@ -38,6 +38,7 @@ tool_models = {
     "mistral/mistral-small-2409",
     "mistral/mistral-small-2501",
     "mistral/mistral-small-latest",
+    "mistral/mistral-small",
     "mistral/devstral-small-latest",
     "mistral/codestral-latest",
     "mistral/ministral-8b-latest",
