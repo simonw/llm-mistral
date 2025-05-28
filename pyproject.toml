@@ -9,7 +9,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "llm>=0.23",
+    "llm>=0.26",
     "httpx",
     "httpx-sse",
 ]
@@ -25,3 +25,7 @@ mistral = "llm_mistral"
 
 [project.optional-dependencies]
 test = ["cogapp", "pytest", "pytest-httpx", "pytest-asyncio"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
