@@ -28,6 +28,25 @@ DEFAULT_ALIASES = {
     "mistral/devstral-small-latest": "devstral-small",
 }
 
+tool_models = {
+    "mistral/mistral-large-latest",
+    "mistral/mistral-medium-2312",
+    "mistral/mistral-medium-2505",
+    "mistral/mistral-medium-latest",
+    "mistral/mistral-small-2312",
+    "mistral/mistral-small-2402",
+    "mistral/mistral-small-2409",
+    "mistral/mistral-small-2501",
+    "mistral/mistral-small-latest",
+    "mistral/devstral-small-latest",
+    "mistral/codestral-latest",
+    "mistral/ministral-8b-latest",
+    "mistral/ministral-3b-latest",
+    "mistral/pixtral-12b-latest",
+    "mistral/pixtral-large-latest",
+    "mistral/open-mistral-nemo",
+}
+
 
 @llm.hookimpl
 def register_models(register):
@@ -38,9 +57,10 @@ def register_models(register):
         alias = DEFAULT_ALIASES.get(our_model_id)
         aliases = [alias] if alias else []
         schemas = "codestral-mamba" not in model_id
+        tools = our_model_id in tool_models
         register(
-            Mistral(our_model_id, model_id, vision, schemas),
-            AsyncMistral(our_model_id, model_id, vision, schemas),
+            Mistral(our_model_id, model_id, vision, schemas, tools),
+            AsyncMistral(our_model_id, model_id, vision, schemas, tools),
             aliases=aliases,
         )
 
@@ -179,7 +199,7 @@ class _Shared:
             default=None,
         )
 
-    def __init__(self, our_model_id, mistral_model_id, vision, schemas):
+    def __init__(self, our_model_id, mistral_model_id, vision, schemas, tools):
         self.model_id = our_model_id
         self.mistral_model_id = mistral_model_id
         if vision:
@@ -190,6 +210,7 @@ class _Shared:
                 "image/webp",
             }
         self.supports_schema = schemas
+        self.supports_tools = tools
 
     def build_messages(self, prompt, conversation):
         messages = []
