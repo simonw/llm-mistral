@@ -135,7 +135,7 @@ async def test_stream_async(mocked_stream):
     model = llm.get_async_model("mistral-tiny")
     response = await model.prompt("How are you?")
     chunks = [item async for item in response]
-    assert chunks == ["I am an AI"]
+    assert chunks == ["I am an AI", ""]
     request = mocked_stream.get_request()
     assert json.loads(request.content) == {
         "model": "mistral-tiny",
