@@ -39,6 +39,7 @@ tool_models = {
     "mistral/mistral-small-2501",
     "mistral/mistral-small-latest",
     "mistral/mistral-small",
+    "mistral/mistral-medium",
     "mistral/devstral-small-latest",
     "mistral/codestral-latest",
     "mistral/ministral-8b-latest",
@@ -559,9 +560,6 @@ class Mistral(_Shared, llm.KeyModel):
                 for tool in prompt.tools
             ]
             body["tool_choice"] = "auto"
-        from pprint import pprint
-
-        pprint(body)
         return body
 
 
@@ -614,7 +612,7 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                                     usage = event["usage"]
                                 delta = event["choices"][0]["delta"]
                                 self.extract_tool_calls(response, delta)
-                                if delta.get("content"):
+                                if "content" in delta:
                                     yield delta["content"]
                             except KeyError:
                                 pass
