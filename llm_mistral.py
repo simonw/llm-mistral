@@ -557,8 +557,7 @@ class Mistral(_Shared, llm.KeyModel):
                 for tool in prompt.tools
             ]
             body["tool_choice"] = "auto"
-        from rich.pretty import pprint
-
+        from pprint import pprint
         pprint(body)
         return body
 
