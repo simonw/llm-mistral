@@ -424,9 +424,6 @@ class _Shared:
                 for tool in prompt.tools
             ]
             body["tool_choice"] = "auto"
-        from rich.pretty import pprint
-
-        pprint(body)
         return body
 
     def set_usage(self, response, usage):
