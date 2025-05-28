@@ -47,7 +47,23 @@ def register_models(register):
 
 @llm.hookimpl
 def register_embedding_models(register):
-    register(MistralEmbed())
+    # alias here to avoid breaking backwards compatibility
+    register(
+        MistralEmbed(model_id="mistral/mistral-embed", model_name="mistral-embed"),
+        aliases=("mistral-embed",),
+    )
+    # These don't get the alias
+    for i in (256, 512, 1024, 1536, 3072):
+        model_id = "mistral/codestral-embed-{}".format(i)
+        aliases = None
+        if i == 1536:
+            aliases = ("codestral-embed",)
+        register(
+            MistralEmbed(
+                model_id=model_id, model_name="codestral-embed", output_dimension=i
+            ),
+            aliases=aliases,
+        )
 
 
 def refresh_models():
@@ -435,13 +451,23 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
 
 
 class MistralEmbed(llm.EmbeddingModel):
-    model_id = "mistral-embed"
     batch_size = 10
     needs_key = "mistral"
     key_env_var = "LLM_MISTRAL_KEY"
 
+    def __init__(self, model_id, model_name, output_dimension=None):
+        self.model_id = model_id
+        self.model_name = model_name
+        self.output_dimension = output_dimension
+
     def embed_batch(self, texts):
         key = self.get_key()
+        body = {
+            "model": self.model_name,
+            "input": list(texts),
+        }
+        if self.output_dimension:
+            body["output_dimension"] = self.output_dimension
         with httpx.Client() as client:
             api_response = client.post(
                 "https://api.mistral.ai/v1/embeddings",
@@ -450,11 +476,7 @@ class MistralEmbed(llm.EmbeddingModel):
                     "Accept": "application/json",
                     "Authorization": f"Bearer {key}",
                 },
-                json={
-                    "model": "mistral-embed",
-                    "input": list(texts),
-                    "encoding_format": "float",
-                },
+                json=body,
                 timeout=None,
             )
             api_response.raise_for_status()
