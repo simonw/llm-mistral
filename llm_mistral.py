@@ -433,6 +433,17 @@ class _Shared:
             output=usage["completion_tokens"],
         )
 
+    def extract_tool_calls(self, response, thing_with_tool_calls):
+        if thing_with_tool_calls.get("tool_calls"):
+            for tool_call in thing_with_tool_calls["tool_calls"]:
+                response.add_tool_call(
+                    llm.ToolCall(
+                        name=tool_call["function"]["name"],
+                        arguments=json.loads(tool_call["function"]["arguments"]),
+                        tool_call_id=tool_call["id"],
+                    )
+                )
+
 
 class Mistral(_Shared, llm.KeyModel):
     def execute(self, prompt, stream, response, conversation, key):
@@ -481,17 +492,7 @@ class Mistral(_Shared, llm.KeyModel):
                                 if "usage" in event:
                                     usage = event["usage"]
                                 delta = event["choices"][0]["delta"]
-                                if "tool_calls" in delta:
-                                    for tool_call in delta["tool_calls"]:
-                                        response.add_tool_call(
-                                            llm.ToolCall(
-                                                name=tool_call["function"]["name"],
-                                                arguments=json.loads(
-                                                    tool_call["function"]["arguments"]
-                                                ),
-                                                tool_call_id=tool_call["id"],
-                                            )
-                                        )
+                                self.extract_tool_calls(response, delta)
                                 if "content" in delta:
                                     yield delta["content"]
                             except KeyError:
@@ -514,6 +515,7 @@ class Mistral(_Shared, llm.KeyModel):
                 yield api_response.json()["choices"][0]["message"]["content"]
                 details = api_response.json()
                 usage = details.pop("usage", None)
+                self.extract_tool_calls(response, details["choices"][0]["message"])
                 response.response_json = details
                 if usage:
                     self.set_usage(response, usage)
@@ -558,6 +560,7 @@ class Mistral(_Shared, llm.KeyModel):
             ]
             body["tool_choice"] = "auto"
         from pprint import pprint
+
         pprint(body)
         return body
 
@@ -609,7 +612,10 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                                 event = sse.json()
                                 if "usage" in event:
                                     usage = event["usage"]
-                                yield event["choices"][0]["delta"]["content"]
+                                delta = event["choices"][0]["delta"]
+                                self.extract_tool_calls(response, delta)
+                                if delta.get("content"):
+                                    yield delta["content"]
                             except KeyError:
                                 pass
                     if usage:
@@ -627,7 +633,9 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                     timeout=None,
                 )
                 api_response.raise_for_status()
-                yield api_response.json()["choices"][0]["message"]["content"]
+                message = api_response.json()["choices"][0]["message"]
+                self.extract_tool_calls(response, message)
+                yield message["content"]
                 details = api_response.json()
                 usage = details.pop("usage", None)
                 response.response_json = details
