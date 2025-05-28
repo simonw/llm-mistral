@@ -62,6 +62,16 @@ Output:
 
 You can pass filenames instead of URLs.
 
+## Tools
+
+To see a list of Mistral models that support [tools](https://llm.datasette.io/en/stable/tools.html) (most of them) run:
+```bash
+llm models --tools -q mistral
+```
+Try one out like this:
+```bash
+llm -m mistral-medium -T llm_time 'What time is it?' --td
+```
 ## Schemas
 
 Mistral models (with the exception of `codestral-mamba`) also support [schemas](https://llm.datasette.io/en/stable/schemas.html):
@@ -138,6 +148,21 @@ To embed a single string:
 llm embed -m mistral-embed -c 'this is text'
 ```
 This will return a JSON array of 1,024 floating point numbers.
+
+Mistral's [Codestral Embed](https://mistral.ai/news/codestral-embed) is an embedding model that specializes in code. LLM supports that in four different sizes:
+
+```bash
+llm embed -m mistral/codestral-embed-256 -c 'code...'
+llm embed -m mistral/codestral-embed-512 -c 'code...'
+llm embed -m mistral/codestral-embed-1024 -c 'code...'
+llm embed -m mistral/codestral-embed-1536 -c 'code...'
+llm embed -m mistral/codestral-embed-3072 -c 'code...'
+```
+The number is the size of the vector that will be returned.
+
+You can also use `codestral-embed` which is an alias for the default size, `codestral-embed-1536`.
+
+```bash
 
 The [LLM documentation](https://llm.datasette.io/en/stable/embeddings/index.html) has more, including how to embed in bulk and store the results in a SQLite database.
 
