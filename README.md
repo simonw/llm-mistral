@@ -125,9 +125,13 @@ for model_id, alias in DEFAULT_ALIASES.items():
 - `mistral-small-2402` for `mistral/mistral-small-2402`
 - `mistral-small-2409` for `mistral/mistral-small-2409`
 - `mistral-small-2501` for `mistral/mistral-small-2501`
+- `magistral-small-2506` for `mistral/magistral-small-2506`
+- `magistral-small` for `mistral/magistral-small-latest`
 - `mistral-small` for `mistral/mistral-small-latest`
 - `mistral-medium-2312` for `mistral/mistral-medium-2312`
 - `mistral-medium-2505` for `mistral/mistral-medium-2505`
+- `magistral-medium-2506` for `mistral/magistral-medium-2506`
+- `magistral-medium` for `mistral/magistral-medium-latest`
 - `mistral-medium` for `mistral/mistral-medium-latest`
 - `mistral-large` for `mistral/mistral-large-latest`
 - `codestral-mamba` for `mistral/codestral-mamba-latest`
