@@ -26,6 +26,8 @@ DEFAULT_ALIASES = {
     "mistral/pixtral-12b-latest": "pixtral-12b",
     "mistral/pixtral-large-latest": "pixtral-large",
     "mistral/devstral-small-latest": "devstral-small",
+    "mistral/voxtral-mini-2507": "voxtral-mini",
+    "mistral/voxtral-small-2507": "voxtral-small",
 }
 
 tool_models = {
