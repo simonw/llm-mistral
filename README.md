@@ -125,6 +125,8 @@ for model_id, alias in DEFAULT_ALIASES.items():
 - `pixtral-12b` for `mistral/pixtral-12b-latest`
 - `pixtral-large` for `mistral/pixtral-large-latest`
 - `devstral-small` for `mistral/devstral-small-latest`
+- `voxtral-mini` for `mistral/voxtral-mini-2507`
+- `voxtral-small` for `mistral/voxtral-small-2507`
 <!-- [[[end]]] -->
 
 
