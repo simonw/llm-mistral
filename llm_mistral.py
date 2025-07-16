@@ -26,6 +26,8 @@ DEFAULT_ALIASES = {
     "mistral/pixtral-12b-latest": "pixtral-12b",
     "mistral/pixtral-large-latest": "pixtral-large",
     "mistral/devstral-small-latest": "devstral-small",
+    "mistral/voxtral-mini-2507": "voxtral-mini",
+    "mistral/voxtral-small-2507": "voxtral-small",
 }
 
 tool_models = {
@@ -55,14 +57,15 @@ def register_models(register):
     for model in get_model_details():
         model_id = model["id"]
         vision = model.get("capabilities", {}).get("vision")
+        audio = "voxtral" in model_id
         our_model_id = "mistral/" + model_id
         alias = DEFAULT_ALIASES.get(our_model_id)
         aliases = [alias] if alias else []
         schemas = "codestral-mamba" not in model_id
         tools = our_model_id in tool_models
         register(
-            Mistral(our_model_id, model_id, vision, schemas, tools),
-            AsyncMistral(our_model_id, model_id, vision, schemas, tools),
+            Mistral(our_model_id, model_id, vision, schemas, tools, audio),
+            AsyncMistral(our_model_id, model_id, vision, schemas, tools, audio),
             aliases=aliases,
         )
 
@@ -159,6 +162,43 @@ def register_commands(cli):
             click.echo("No changes", err=True)
 
 
+def _build_message_content(text, attachments):
+    """Build message content handling attachments consistently.
+
+    Args:
+        text: The text content for the message
+        attachments: List of attachment objects or None
+
+    Returns:
+        String if no attachments, or array with text + attachment objects
+    """
+    if not attachments:
+        return text
+
+    content = [{"type": "text", "text": text or ""}]
+    for attachment in attachments:
+        # audio only handles URLs at the moment
+        if attachment.resolve_type() == "audio/mpeg":
+            if not attachment.url:
+                raise ValueError("Audio attachment must use a URL")
+            content.append(
+                {
+                    "type": "input_audio",
+                    "input_audio": {"data": attachment.url, "format": "mp3"},
+                }
+            )
+        else:
+            # Images
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": attachment.url
+                    or f"data:{attachment.resolve_type()};base64,{attachment.base64_content()}",
+                }
+            )
+    return content
+
+
 class _Shared:
     can_stream = True
     needs_key = "mistral"
@@ -201,16 +241,26 @@ class _Shared:
             default=None,
         )
 
-    def __init__(self, our_model_id, mistral_model_id, vision, schemas, tools):
+    def __init__(self, our_model_id, mistral_model_id, vision, schemas, tools, audio):
         self.model_id = our_model_id
         self.mistral_model_id = mistral_model_id
+        attachment_types = set()
         if vision:
-            self.attachment_types = {
-                "image/jpeg",
-                "image/png",
-                "image/gif",
-                "image/webp",
-            }
+            attachment_types.update(
+                {
+                    "image/jpeg",
+                    "image/png",
+                    "image/gif",
+                    "image/webp",
+                }
+            )
+        if audio:
+            attachment_types.update(
+                {
+                    "audio/mpeg",
+                }
+            )
+        self.attachment_types = attachment_types
         self.supports_schema = schemas
         self.supports_tools = tools
 
@@ -224,23 +274,14 @@ class _Shared:
 
             # Add user message if we have content and no tool results
             if not prompt.tool_results and prompt.prompt is not None:
-                if prompt.attachments:
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [{"type": "text", "text": prompt.prompt or ""}]
-                            + [
-                                {
-                                    "type": "image_url",
-                                    "image_url": attachment.url
-                                    or f"data:{attachment.resolve_type()};base64,{attachment.base64_content()}",
-                                }
-                                for attachment in prompt.attachments
-                            ],
-                        }
-                    )
-                else:
-                    messages.append({"role": "user", "content": prompt.prompt})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": _build_message_content(
+                            prompt.prompt, prompt.attachments
+                        ),
+                    }
+                )
 
             # Add tool results if present
             if prompt.tool_results:
@@ -283,30 +324,14 @@ class _Shared:
                 if (
                     prev_response.prompt.prompt is not None
                 ):  # Only add if there's content
-                    if prev_response.attachments:
-                        messages.append(
-                            {
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "text",
-                                        "text": prev_response.prompt.prompt,
-                                    }
-                                ]
-                                + [
-                                    {
-                                        "type": "image_url",
-                                        "image_url": attachment.url
-                                        or f"data:{attachment.resolve_type()};base64,{attachment.base64_content()}",
-                                    }
-                                    for attachment in prev_response.attachments
-                                ],
-                            }
-                        )
-                    else:
-                        messages.append(
-                            {"role": "user", "content": prev_response.prompt.prompt}
-                        )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": _build_message_content(
+                                prev_response.prompt.prompt, prev_response.attachments
+                            ),
+                        }
+                    )
 
             # If this response's prompt had tool results, add them before the assistant message
             if prev_response.prompt.tool_results:
@@ -350,23 +375,14 @@ class _Shared:
 
         # Add current user message if not a tool result response
         if not prompt.tool_results and prompt.prompt is not None:
-            if prompt.attachments:
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": [{"type": "text", "text": prompt.prompt or ""}]
-                        + [
-                            {
-                                "type": "image_url",
-                                "image_url": attachment.url
-                                or f"data:{attachment.resolve_type()};base64,{attachment.base64_content()}",
-                            }
-                            for attachment in prompt.attachments
-                        ],
-                    }
-                )
-            else:
-                messages.append({"role": "user", "content": prompt.prompt})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": _build_message_content(
+                        prompt.prompt, prompt.attachments
+                    ),
+                }
+            )
 
         # Add current tool results if present
         if prompt.tool_results:

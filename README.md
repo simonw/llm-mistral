@@ -62,6 +62,18 @@ Output:
 
 You can pass filenames instead of URLs.
 
+## Audio
+
+The Voxtral models - `voxtral-small` and `voxtral-mini` - are capable of accepting audio input. This currently only works for URLs to MP3 files hosted online:
+
+```bash
+llm -m voxtral-small \
+  -a https://static.simonwillison.net/static/2024/pelican-joke-request.mp3
+```
+Output:
+
+> What do you call a pelican with no teeth? A gum-ican
+
 ## Tools
 
 To see a list of Mistral models that support [tools](https://llm.datasette.io/en/stable/tools.html) (most of them) run:
@@ -125,6 +137,8 @@ for model_id, alias in DEFAULT_ALIASES.items():
 - `pixtral-12b` for `mistral/pixtral-12b-latest`
 - `pixtral-large` for `mistral/pixtral-large-latest`
 - `devstral-small` for `mistral/devstral-small-latest`
+- `voxtral-mini` for `mistral/voxtral-mini-2507`
+- `voxtral-small` for `mistral/voxtral-small-2507`
 <!-- [[[end]]] -->
 
 
