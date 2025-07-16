@@ -55,14 +55,15 @@ def register_models(register):
     for model in get_model_details():
         model_id = model["id"]
         vision = model.get("capabilities", {}).get("vision")
+        audio = "voxtral" in model_id
         our_model_id = "mistral/" + model_id
         alias = DEFAULT_ALIASES.get(our_model_id)
         aliases = [alias] if alias else []
         schemas = "codestral-mamba" not in model_id
         tools = our_model_id in tool_models
         register(
-            Mistral(our_model_id, model_id, vision, schemas, tools),
-            AsyncMistral(our_model_id, model_id, vision, schemas, tools),
+            Mistral(our_model_id, model_id, vision, schemas, tools, audio),
+            AsyncMistral(our_model_id, model_id, vision, schemas, tools, audio),
             aliases=aliases,
         )
 
@@ -201,16 +202,25 @@ class _Shared:
             default=None,
         )
 
-    def __init__(self, our_model_id, mistral_model_id, vision, schemas, tools):
+    def __init__(self, our_model_id, mistral_model_id, vision, schemas, tools, audio):
         self.model_id = our_model_id
         self.mistral_model_id = mistral_model_id
+        attachment_types = set()
         if vision:
-            self.attachment_types = {
-                "image/jpeg",
-                "image/png",
-                "image/gif",
-                "image/webp",
-            }
+            self.attachment_types.extend(
+                {
+                    "image/jpeg",
+                    "image/png",
+                    "image/gif",
+                    "image/webp",
+                }
+            )
+        if audio:
+            self.attachment_types.extend(
+                {
+                    "audio/mpeg",
+                }
+            )
         self.supports_schema = schemas
         self.supports_tools = tools
 
