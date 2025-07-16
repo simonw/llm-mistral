@@ -13,6 +13,14 @@ Install this plugin in the same environment as LLM:
 ```bash
 llm install llm-mistral
 ```
+
+## Upgrade
+To upgrade to latest package
+```
+llm install --upgrade llm-mistral
+```
+After upgrade you might need to refresh the models, refer [Refreshing the model list](#refreshing-the-model-list)
+
 ## Usage
 
 First, obtain an API key for [the Mistral API](https://console.mistral.ai/).
