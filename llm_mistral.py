@@ -165,6 +165,81 @@ def register_commands(cli):
         else:
             click.echo("No changes", err=True)
 
+    @mistral.command()
+    @click.argument("input_path")
+    @click.option(
+        "-m",
+        "--model",
+        default="voxtral-mini",
+        type=click.Choice(["voxtral-mini", "voxtral-small"]),
+        help="Model to use for transcription (default: voxtral-mini)",
+    )
+    @click.option(
+        "-s",
+        "--segments",
+        is_flag=True,
+        help="Include segment-level timestamps in the transcription",
+    )
+    @click.option("--key", help="API key to use")
+    def transcribe(input_path, model, segments, key):
+        "Transcribe audio from URL or local file path"
+        api_key = llm.get_key(key, "mistral", "LLM_MISTRAL_KEY")
+        if not api_key:
+            raise click.ClickException(
+                "You must use --key, set the 'mistral' key or set the LLM_MISTRAL_KEY environment variable."
+            )
+
+        # Convert model name to full model ID
+        model_id = f"{model}-2507"
+
+        # Determine if input is URL or file path
+        is_url = input_path.startswith(("http://", "https://"))
+
+        # Prepare multipart form data using files parameter for proper multipart/form-data
+        files = {"model": (None, model_id)}
+
+        if segments:
+            files["timestamp_granularities"] = (None, "segment")
+
+        if is_url:
+            files["file_url"] = (None, input_path)
+        else:
+            # For file uploads
+            try:
+                files["file"] = open(input_path, "rb")
+            except FileNotFoundError:
+                raise click.ClickException(f"File not found: {input_path}")
+            except Exception as e:
+                raise click.ClickException(f"Error opening file: {e}")
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(
+                    "https://api.mistral.ai/v1/audio/transcriptions",
+                    headers={"x-api-key": api_key},
+                    files=files,
+                    timeout=None,
+                )
+                response.raise_for_status()
+                result = response.json()
+                click.echo(json.dumps(result, indent=2))
+        except httpx.HTTPStatusError as e:
+            try:
+                error_details = e.response.json()
+                raise click.ClickException(
+                    f"API Error {e.response.status_code}: {error_details}"
+                )
+            except:
+                raise click.ClickException(
+                    f"API Error {e.response.status_code}: {e.response.text}"
+                )
+        except Exception as e:
+            raise click.ClickException(f"Error: {e}")
+        finally:
+            # Close file if it was opened for file uploads
+            if not is_url and "file" in files:
+                files["file"].close()
+
 
 def _build_message_content(text, attachments):
     """Build message content handling attachments consistently.
