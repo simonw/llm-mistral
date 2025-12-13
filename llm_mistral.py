@@ -215,6 +215,13 @@ class _Shared:
         [{"type": "thinking", "thinking": [{"type": "text", "text": "text content"}]}]
 
         We need to extract the actual text from these structures.
+
+        Args:
+            content: The content to extract text from. Can be a string, list of thinking
+                     chunks, or other types.
+
+        Returns:
+            String with the extracted text content.
         """
         if isinstance(content, str):
             return content
