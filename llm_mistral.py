@@ -208,6 +208,33 @@ class _Shared:
     needs_key = "mistral"
     key_env_var = "LLM_MISTRAL_KEY"
 
+    def _extract_text_from_content(self, content):
+        """Extract text from content, handling both string and thinking chunk formats.
+
+        The new Magistral models return thinking chunks in the format:
+        [{"type": "thinking", "thinking": [{"type": "text", "text": "text content"}]}]
+
+        We need to extract the actual text from these structures.
+        """
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            # Handle thinking chunks
+            text_parts = []
+            for chunk in content:
+                if isinstance(chunk, dict) and chunk.get("type") == "thinking":
+                    thinking_items = chunk.get("thinking", [])
+                    for thinking_item in thinking_items:
+                        if (
+                            isinstance(thinking_item, dict)
+                            and thinking_item.get("type") == "text"
+                        ):
+                            text_parts.append(thinking_item.get("text", ""))
+            return "".join(text_parts)
+        else:
+            # For any other type, convert to string
+            return str(content)
+
     class Options(llm.Options):
         temperature: Optional[float] = Field(
             description=(
@@ -515,7 +542,11 @@ class Mistral(_Shared, llm.KeyModel):
                                 delta = event["choices"][0]["delta"]
                                 self.extract_tool_calls(response, delta)
                                 if "content" in delta:
-                                    yield delta["content"]
+                                    # Extract text from content, handling thinking chunks
+                                    content_text = self._extract_text_from_content(
+                                        delta["content"]
+                                    )
+                                    yield content_text
                             except KeyError:
                                 pass
                     if usage:
@@ -633,7 +664,11 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                                 delta = event["choices"][0]["delta"]
                                 self.extract_tool_calls(response, delta)
                                 if "content" in delta:
-                                    yield delta["content"]
+                                    # Extract text from content, handling thinking chunks
+                                    content_text = self._extract_text_from_content(
+                                        delta["content"]
+                                    )
+                                    yield content_text
                             except KeyError:
                                 pass
                     if usage:
