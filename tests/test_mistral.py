@@ -3,6 +3,7 @@ import pathlib
 import pytest
 from pytest_httpx import IteratorStream
 import llm
+from llm.parts import StreamEvent, TextPart, ToolCallPart
 from llm.tools import llm_version
 
 TEST_MODELS = {
@@ -159,7 +160,7 @@ def test_stream(mocked_stream):
     model = llm.get_model("mistral-tiny")
     response = model.prompt("How are you?")
     chunks = list(response)
-    assert chunks == ["I am an AI", ""]
+    assert chunks == ["I am an AI"]
     request = mocked_stream.get_request()
     assert json.loads(request.content) == {
         "model": "mistral-tiny",
@@ -175,7 +176,7 @@ async def test_stream_async(mocked_stream):
     model = llm.get_async_model("mistral-tiny")
     response = await model.prompt("How are you?")
     chunks = [item async for item in response]
-    assert chunks == ["I am an AI", ""]
+    assert chunks == ["I am an AI"]
     request = mocked_stream.get_request()
     assert json.loads(request.content) == {
         "model": "mistral-tiny",
@@ -234,3 +235,72 @@ def test_tools_stream(mocked_tool_stream):
     )
     output = chain_response.text()
     assert output == "The installed version of LLM is 0.26."
+
+
+def test_stream_events(mocked_stream):
+    model = llm.get_model("mistral-tiny")
+    response = model.prompt("How are you?")
+    events = list(response.stream_events())
+    assert all(isinstance(e, StreamEvent) for e in events)
+    text_events = [e for e in events if e.type == "text"]
+    assert len(text_events) == 1
+    assert text_events[0].chunk == "I am an AI"
+    assert text_events[0].part_index == 0
+
+
+def test_stream_parts(mocked_stream):
+    model = llm.get_model("mistral-tiny")
+    response = model.prompt("How are you?")
+    response.text()
+    parts = response.parts
+    assert len(parts) == 1
+    assert isinstance(parts[0], TextPart)
+    assert parts[0].text == "I am an AI"
+
+
+def test_no_stream_events(mocked_no_stream):
+    model = llm.get_model("mistral-tiny")
+    response = model.prompt("How are you?", stream=False)
+    events = list(response.stream_events())
+    text_events = [e for e in events if e.type == "text"]
+    assert len(text_events) == 1
+    assert text_events[0].chunk == "I'm just a computer program, I don't have feelings."
+    assert text_events[0].part_index == 0
+    parts = response.parts
+    assert len(parts) == 1
+    assert isinstance(parts[0], TextPart)
+
+
+def test_tool_stream_events(mocked_tool_stream):
+    model = llm.get_model("mistral/mistral-medium")
+    chain_response = model.chain(
+        "llm_version",
+        tools=[llm_version],
+        before_call=print,
+        after_call=lambda *args: None,
+    )
+    events = list(chain_response.stream_events())
+    # First response has tool call events, second has text events
+    tool_name_events = [e for e in events if e.type == "tool_call_name"]
+    tool_args_events = [e for e in events if e.type == "tool_call_args"]
+    text_events = [e for e in events if e.type == "text"]
+    assert len(tool_name_events) == 1
+    assert tool_name_events[0].chunk == "llm_version"
+    assert len(tool_args_events) == 1
+    assert tool_args_events[0].chunk == "{}"
+    assert len(text_events) > 0
+
+
+@pytest.mark.asyncio
+async def test_stream_events_async(mocked_stream):
+    model = llm.get_async_model("mistral-tiny")
+    response = await model.prompt("How are you?")
+    events = []
+    async for event in response.astream_events():
+        events.append(event)
+    text_events = [e for e in events if e.type == "text"]
+    assert len(text_events) == 1
+    assert text_events[0].chunk == "I am an AI"
+    parts = response.parts
+    assert len(parts) == 1
+    assert isinstance(parts[0], TextPart)

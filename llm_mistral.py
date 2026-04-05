@@ -3,6 +3,7 @@ from httpx_sse import connect_sse, aconnect_sse
 import httpx
 import json
 import llm
+from llm.parts import StreamEvent
 from pydantic import Field
 from typing import Optional
 
@@ -454,16 +455,57 @@ class _Shared:
             output=usage["completion_tokens"],
         )
 
-    def extract_tool_calls(self, response, thing_with_tool_calls):
-        if thing_with_tool_calls.get("tool_calls"):
-            for tool_call in thing_with_tool_calls["tool_calls"]:
-                response.add_tool_call(
-                    llm.ToolCall(
-                        name=tool_call["function"]["name"],
-                        arguments=json.loads(tool_call["function"]["arguments"]),
-                        tool_call_id=tool_call["id"],
-                    )
+    def _emit_tool_call_events(self, delta, part_index, has_text, gathered_tool_calls):
+        """Yield StreamEvent objects for any tool calls in a streaming delta.
+
+        Also accumulates tool call data into gathered_tool_calls dict
+        (keyed by index) for later use with response.add_tool_call().
+        """
+        if delta.get("tool_calls"):
+            for tool_call in delta["tool_calls"]:
+                tc_index = tool_call.get("index", 0)
+                tc_part_index = (
+                    part_index + 1 + tc_index if has_text else part_index + tc_index
                 )
+                tool_call_id = tool_call.get("id")
+                func = tool_call.get("function", {})
+
+                # Accumulate for add_tool_call later
+                if tc_index not in gathered_tool_calls:
+                    gathered_tool_calls[tc_index] = {
+                        "id": tool_call_id,
+                        "name": "",
+                        "arguments": "",
+                    }
+                if tool_call_id:
+                    gathered_tool_calls[tc_index]["id"] = tool_call_id
+                if func.get("name"):
+                    gathered_tool_calls[tc_index]["name"] += func["name"]
+                    yield StreamEvent(
+                        type="tool_call_name",
+                        chunk=func["name"],
+                        part_index=tc_part_index,
+                        tool_call_id=tool_call_id,
+                    )
+                if func.get("arguments"):
+                    gathered_tool_calls[tc_index]["arguments"] += func["arguments"]
+                    yield StreamEvent(
+                        type="tool_call_args",
+                        chunk=func["arguments"],
+                        part_index=tc_part_index,
+                        tool_call_id=tool_call_id or gathered_tool_calls[tc_index]["id"],
+                    )
+
+    def _add_gathered_tool_calls(self, response, gathered_tool_calls):
+        """Add accumulated tool calls to the response object."""
+        for tc in gathered_tool_calls.values():
+            response.add_tool_call(
+                llm.ToolCall(
+                    name=tc["name"],
+                    arguments=json.loads(tc["arguments"]) if tc["arguments"] else {},
+                    tool_call_id=tc["id"],
+                )
+            )
 
 
 class Mistral(_Shared, llm.KeyModel):
@@ -505,6 +547,9 @@ class Mistral(_Shared, llm.KeyModel):
                             f"{event_source.response.status_code}: {type} - {message}"
                         )
                     usage = None
+                    part_index = 0
+                    has_text = False
+                    gathered_tool_calls = {}
                     event_source.response.raise_for_status()
                     for sse in event_source.iter_sse():
                         if sse.data != "[DONE]":
@@ -513,11 +558,19 @@ class Mistral(_Shared, llm.KeyModel):
                                 if "usage" in event:
                                     usage = event["usage"]
                                 delta = event["choices"][0]["delta"]
-                                self.extract_tool_calls(response, delta)
-                                if "content" in delta:
-                                    yield delta["content"]
+                                yield from self._emit_tool_call_events(
+                                    delta, part_index, has_text, gathered_tool_calls
+                                )
+                                if "content" in delta and delta["content"]:
+                                    has_text = True
+                                    yield StreamEvent(
+                                        type="text",
+                                        chunk=delta["content"],
+                                        part_index=part_index,
+                                    )
                             except KeyError:
                                 pass
+                    self._add_gathered_tool_calls(response, gathered_tool_calls)
                     if usage:
                         self.set_usage(response, usage)
         else:
@@ -533,10 +586,41 @@ class Mistral(_Shared, llm.KeyModel):
                     timeout=None,
                 )
                 api_response.raise_for_status()
-                yield api_response.json()["choices"][0]["message"]["content"]
                 details = api_response.json()
+                message = details["choices"][0]["message"]
+                part_index = 0
+                if message.get("content"):
+                    yield StreamEvent(
+                        type="text",
+                        chunk=message["content"],
+                        part_index=part_index,
+                    )
+                    part_index += 1
+                if message.get("tool_calls"):
+                    for tool_call in message["tool_calls"]:
+                        yield StreamEvent(
+                            type="tool_call_name",
+                            chunk=tool_call["function"]["name"],
+                            part_index=part_index,
+                            tool_call_id=tool_call["id"],
+                        )
+                        yield StreamEvent(
+                            type="tool_call_args",
+                            chunk=tool_call["function"]["arguments"],
+                            part_index=part_index,
+                            tool_call_id=tool_call["id"],
+                        )
+                        response.add_tool_call(
+                            llm.ToolCall(
+                                name=tool_call["function"]["name"],
+                                arguments=json.loads(
+                                    tool_call["function"]["arguments"]
+                                ),
+                                tool_call_id=tool_call["id"],
+                            )
+                        )
+                        part_index += 1
                 usage = details.pop("usage", None)
-                self.extract_tool_calls(response, details["choices"][0]["message"])
                 response.response_json = details
                 if usage:
                     self.set_usage(response, usage)
@@ -624,6 +708,9 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                         )
                     event_source.response.raise_for_status()
                     usage = None
+                    part_index = 0
+                    has_text = False
+                    gathered_tool_calls = {}
                     async for sse in event_source.aiter_sse():
                         if sse.data != "[DONE]":
                             try:
@@ -631,11 +718,20 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                                 if "usage" in event:
                                     usage = event["usage"]
                                 delta = event["choices"][0]["delta"]
-                                self.extract_tool_calls(response, delta)
-                                if "content" in delta:
-                                    yield delta["content"]
+                                for ev in self._emit_tool_call_events(
+                                    delta, part_index, has_text, gathered_tool_calls
+                                ):
+                                    yield ev
+                                if "content" in delta and delta["content"]:
+                                    has_text = True
+                                    yield StreamEvent(
+                                        type="text",
+                                        chunk=delta["content"],
+                                        part_index=part_index,
+                                    )
                             except KeyError:
                                 pass
+                    self._add_gathered_tool_calls(response, gathered_tool_calls)
                     if usage:
                         self.set_usage(response, usage)
         else:
@@ -651,10 +747,40 @@ class AsyncMistral(_Shared, llm.AsyncKeyModel):
                     timeout=None,
                 )
                 api_response.raise_for_status()
-                message = api_response.json()["choices"][0]["message"]
-                self.extract_tool_calls(response, message)
-                yield message["content"]
                 details = api_response.json()
+                message = details["choices"][0]["message"]
+                part_index = 0
+                if message.get("content"):
+                    yield StreamEvent(
+                        type="text",
+                        chunk=message["content"],
+                        part_index=part_index,
+                    )
+                    part_index += 1
+                if message.get("tool_calls"):
+                    for tool_call in message["tool_calls"]:
+                        yield StreamEvent(
+                            type="tool_call_name",
+                            chunk=tool_call["function"]["name"],
+                            part_index=part_index,
+                            tool_call_id=tool_call["id"],
+                        )
+                        yield StreamEvent(
+                            type="tool_call_args",
+                            chunk=tool_call["function"]["arguments"],
+                            part_index=part_index,
+                            tool_call_id=tool_call["id"],
+                        )
+                        response.add_tool_call(
+                            llm.ToolCall(
+                                name=tool_call["function"]["name"],
+                                arguments=json.loads(
+                                    tool_call["function"]["arguments"]
+                                ),
+                                tool_call_id=tool_call["id"],
+                            )
+                        )
+                        part_index += 1
                 usage = details.pop("usage", None)
                 response.response_json = details
                 if usage:
