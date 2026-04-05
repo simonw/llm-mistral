@@ -188,17 +188,12 @@ See [LLM now provides tools for working with embeddings](https://simonwillison.n
 
 ## Development
 
-To set up this plugin locally, first checkout the code. Then create a new virtual environment:
+To set up this plugin locally, first checkout the code and run the tests with `uv`:
 ```bash
 cd llm-mistral
-python3 -m venv venv
-source venv/bin/activate
+uv run pytest
 ```
-Now install the dependencies and test dependencies:
+To run `llm` against the development version of the plugin:
 ```bash
-llm install -e '.[test]'
-```
-To run the tests:
-```bash
-pytest
+uv run llm -m mistral-small hi
 ```

@@ -4,10 +4,9 @@ version = "0.15"
 description = "LLM plugin providing access to Mistral models using the Mistral API"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
-license = {text = "Apache-2.0"}
-classifiers = [
-    "License :: OSI Approved :: Apache Software License"
-]
+license = "Apache-2.0"
+requires-python = ">=3.10"
+classifiers = []
 dependencies = [
     "llm>=0.26",
     "httpx",
@@ -23,8 +22,12 @@ CI = "https://github.com/simonw/llm-mistral/actions"
 [project.entry-points.llm]
 mistral = "llm_mistral"
 
-[project.optional-dependencies]
-test = ["cogapp", "pytest", "pytest-httpx", "pytest-asyncio"]
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = ["cogapp", "pytest", "pytest-httpx", "pytest-asyncio"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
