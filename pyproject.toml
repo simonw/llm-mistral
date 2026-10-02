@@ -26,10 +26,6 @@ CI = "https://github.com/simonw/llm-mistral/actions"
 [project.entry-points.llm]
 mistral = "llm_mistral"
 
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
 [dependency-groups]
 dev = ["cogapp", "pytest", "pytest-httpx", "pytest-asyncio"]
 

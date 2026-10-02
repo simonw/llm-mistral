@@ -269,6 +269,19 @@ class _Shared:
         self.supports_tools = tools
 
     def build_messages(self, prompt, conversation):
+        canonical_messages = getattr(prompt, "messages", None)
+        if canonical_messages is not None:
+            messages = self._build_canonical_messages(canonical_messages)
+            if prompt.options.prefix:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": prompt.options.prefix,
+                        "prefix": True,
+                    }
+                )
+            return messages
+
         messages = []
 
         # If no conversation history, build initial messages
@@ -405,6 +418,90 @@ class _Shared:
                 {"role": "assistant", "content": prompt.options.prefix, "prefix": True}
             )
 
+        return messages
+
+    def _build_canonical_messages(self, canonical_messages):
+        from llm.parts import (
+            AttachmentPart,
+            ReasoningPart,
+            TextPart,
+            ToolCallPart,
+            ToolResultPart,
+        )
+
+        messages = []
+        for message in canonical_messages:
+            if message.role == "tool":
+                for part in message.parts:
+                    if not isinstance(part, ToolResultPart):
+                        raise ValueError("Unsupported part in Mistral tool message")
+                    output = part.output
+                    if not isinstance(output, str):
+                        output = json.dumps(output)
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": part.tool_call_id,
+                            "content": _build_message_content(output, part.attachments),
+                        }
+                    )
+                continue
+            if message.role not in ("system", "user", "assistant"):
+                raise ValueError(f"Unsupported Mistral message role: {message.role}")
+
+            content = []
+            thinking = []
+            tool_calls = []
+            for part in message.parts:
+                if isinstance(part, TextPart):
+                    content.append({"type": "text", "text": part.text})
+                elif isinstance(part, AttachmentPart):
+                    if part.attachment is not None:
+                        content.extend(
+                            _build_message_content(None, [part.attachment])[1:]
+                        )
+                elif isinstance(part, ReasoningPart):
+                    if message.role != "assistant":
+                        raise ValueError(
+                            "Unsupported reasoning in non-assistant Mistral message"
+                        )
+                    if not part.redacted and part.text:
+                        thinking.append(
+                            {
+                                "type": "thinking",
+                                "thinking": [{"type": "text", "text": part.text}],
+                            }
+                        )
+                elif isinstance(part, ToolCallPart):
+                    if message.role != "assistant":
+                        raise ValueError(
+                            "Unsupported tool call in non-assistant Mistral message"
+                        )
+                    tool_calls.append(
+                        {
+                            "id": part.tool_call_id,
+                            "type": "function",
+                            "function": {
+                                "name": part.name,
+                                "arguments": json.dumps(part.arguments),
+                            },
+                        }
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported Mistral message part: {type(part).__name__}"
+                    )
+
+            if thinking or any(chunk["type"] != "text" for chunk in content):
+                rendered_content = thinking + content
+            else:
+                rendered_content = "".join(chunk["text"] for chunk in content)
+            entry = {"role": message.role, "content": rendered_content}
+            if tool_calls:
+                entry["tool_calls"] = tool_calls
+                if not rendered_content:
+                    entry["content"] = None
+            messages.append(entry)
         return messages
 
     def build_body(self, prompt, messages):
