@@ -652,7 +652,7 @@ async def test_reasoning_options_and_replay(
 ):
     blocks = reasoning_response(stream)
     get_model = llm.get_async_model if async_ else llm.get_model
-    options = {"reasoning_effort": effort, "prompt_mode": "reasoning"} if effort else {}
+    options = {"reasoning_effort": effort} if effort else {}
     response = get_model("mistral/magistral-test").prompt(
         "Think", stream=stream, **options
     )
@@ -676,10 +676,9 @@ async def test_reasoning_options_and_replay(
     request = json.loads(httpx_mock.get_requests()[0].content)
     if effort:
         assert request["reasoning_effort"] == effort
-        assert request["prompt_mode"] == "reasoning"
     else:
         assert "reasoning_effort" not in request
-        assert "prompt_mode" not in request
+    assert "prompt_mode" not in request
 
     reasoning_response(stream)
     if async_:
@@ -698,9 +697,7 @@ async def test_reasoning_options_and_replay(
     assert replay == blocks
 
 
-@pytest.mark.parametrize(
-    "option,value", [("reasoning_effort", "max"), ("prompt_mode", "normal")]
-)
+@pytest.mark.parametrize("option,value", [("reasoning_effort", "max")])
 def test_invalid_reasoning_options(option, value):
     from pydantic import ValidationError
 
@@ -739,3 +736,13 @@ def test_reasoning_cli_display(reasoning_response, async_, stream, hide):
     else:
         assert "First thought.Second thought." in result.stderr
         assert "The answer." not in result.stderr
+
+
+@pytest.mark.parametrize("async_", [False, True])
+@pytest.mark.parametrize("model_id", ["mistral-tiny", "mistral/magistral-test"])
+def test_prompt_mode_is_rejected(async_, model_id):
+    from pydantic import ValidationError
+
+    model = (llm.get_async_model if async_ else llm.get_model)(model_id)
+    with pytest.raises(ValidationError, match="prompt_mode"):
+        model.Options(prompt_mode="reasoning")

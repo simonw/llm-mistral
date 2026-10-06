@@ -106,7 +106,7 @@ For models that support reasoning, set the effort using `-o reasoning_effort`:
 llm -m magistral-small 'What is the next number in 2, 6, 12, 20?' -o reasoning_effort high
 ```
 
-The [Mistral API](https://docs.mistral.ai/openapi.yaml) defines `none`, `minimal`, `low`, `medium`, `high` and `xhigh`. Supported levels depend on the model. If you omit this option, the model's default applies. You can also pass `-o prompt_mode reasoning` to use Mistral's reasoning system prompt.
+The [Mistral API](https://docs.mistral.ai/openapi.yaml) defines `none`, `minimal`, `low`, `medium`, `high` and `xhigh`. Supported levels depend on the model. If you omit this option, the model's default applies.
 
 When streaming (the default), reasoning text is displayed on stderr, separate from the answer on stdout. Use `-R` or `--hide-reasoning` to hide it:
 
@@ -121,7 +121,6 @@ Hiding reasoning only changes its display; use `-o reasoning_effort none` to dis
 Options are passed using `-o name value` syntax. Availability depends on the model:
 
 - `-o reasoning_effort high`: Reasoning effort: `none`, `minimal`, `low`, `medium`, `high` or `xhigh`.
-- `-o prompt_mode reasoning`: Use Mistral's reasoning system prompt.
 - `-o temperature 0.7`: The sampling temperature, between 0 and 1. Higher increases randomness, lower values are more focused and deterministic.
 - `-o top_p 0.1`: 0.1 means consider only tokens in the top 10% probability mass. Use this or temperature but not both.
 - `-o max_tokens 20`: Maximum number of tokens to generate in the completion.

@@ -293,10 +293,6 @@ class _Shared:
             description="Reasoning effort for supported models: none, minimal, low, medium, high or xhigh.",
             default=None,
         )
-        prompt_mode: Optional[Literal["reasoning"]] = Field(
-            description="Use Mistral's reasoning system prompt for reasoning models.",
-            default=None,
-        )
 
     def __init__(
         self,
@@ -450,8 +446,6 @@ class _Shared:
         }
         if getattr(prompt.options, "reasoning_effort", None) is not None:
             kwargs["reasoning_effort"] = prompt.options.reasoning_effort
-        if getattr(prompt.options, "prompt_mode", None) is not None:
-            kwargs["prompt_mode"] = prompt.options.prompt_mode
         if prompt.options.temperature is not None:
             kwargs["temperature"] = prompt.options.temperature
         if prompt.options.top_p is not None:

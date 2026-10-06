@@ -53,9 +53,7 @@ def test_logged_reasoning_continuation(
     assert messages[2]["content"][-1] == {"type": "text", "text": "The answer."}
 
 
-@pytest.mark.parametrize(
-    "option,value", [("reasoning_effort", "high"), ("prompt_mode", "reasoning")]
-)
+@pytest.mark.parametrize("option,value", [("reasoning_effort", "high")])
 def test_non_reasoning_model_rejects_options(option, value, monkeypatch, tmp_path):
     models = {
         "data": [
@@ -340,7 +338,7 @@ def test_reasoning_capabilities(
     model = (llm.get_async_model if async_ else llm.get_model)("mistral/" + model_id)
     fields = model.Options.model_fields
     assert ("reasoning_effort" in fields) is expected
-    assert ("prompt_mode" in fields) is expected
+    assert "prompt_mode" not in fields
     assert "temperature" in fields
 
 
@@ -350,7 +348,7 @@ def test_reasoning_fallback_without_cache(monkeypatch, tmp_path, async_):
     monkeypatch.setattr(llm, "get_key", lambda *args: None)
     get_model = llm.get_async_model if async_ else llm.get_model
     assert "reasoning_effort" in get_model("magistral-small").Options.model_fields
-    assert "prompt_mode" not in get_model("mistral-small").Options.model_fields
+    assert "reasoning_effort" not in get_model("mistral-small").Options.model_fields
 
 
 @pytest.mark.asyncio
