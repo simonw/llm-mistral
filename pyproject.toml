@@ -13,7 +13,7 @@ requires-python = ">=3.10"
 classifiers = []
 dependencies = [
     "llm>=0.32",
-    "mistralai>=2.9.1",
+    "mistralai>=3.1.0",
 ]
 
 [project.urls]
