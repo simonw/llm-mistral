@@ -12,7 +12,7 @@ license = "Apache-2.0"
 requires-python = ">=3.10"
 classifiers = []
 dependencies = [
-    "llm>=0.32",
+    "llm>=0.36",
     "mistralai>=3.1.0",
 ]
 
