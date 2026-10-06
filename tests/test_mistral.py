@@ -578,8 +578,10 @@ def reasoning_response(httpx_mock):
                     {
                         "type": "thinking",
                         "thinking": [{"type": "text", "text": "First "}],
+                        "closed": True,
                     }
                 ],
+                "",  # Empty deltas must not detach the eventual signature.
                 [{**blocks[0], "thinking": [{"type": "text", "text": "thought."}]}],
                 [blocks[1]],
                 [blocks[2]],

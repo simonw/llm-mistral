@@ -266,17 +266,20 @@ async def test_recorded_magistral_thinking_is_preserved(recorded_high, async_, s
     assert expected not in text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="closed=True is a prefix flag, but currently splits a reasoning span into 72 parts",
-)
-def test_streamed_reasoning_is_not_split_on_closed_flag(recorded_high):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("async_", [False, True])
+async def test_streamed_reasoning_is_not_split_on_closed_flag(recorded_high, async_):
     expected = recorded_high(True)
-    response = llm.get_model("mistral-tiny").prompt(
-        "What is 17 times 19? Answer briefly."
-    )
-    response.text()
-    parts = response.messages()[0].parts
+    response = (llm.get_async_model if async_ else llm.get_model)(
+        "mistral-tiny"
+    ).prompt("What is 17 times 19? Answer briefly.")
+    if async_:
+        await response.text()
+        messages = await response.messages()
+    else:
+        response.text()
+        messages = response.messages()
+    parts = messages[0].parts
     assert len([p for p in parts if isinstance(p, ReasoningPart)]) == 1
     assert parts[0].text == expected
 

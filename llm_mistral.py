@@ -579,8 +579,8 @@ class _Shared:
             if index != message_index:
                 yield from self.flush_reasoning(reasoning_states, index)
         if isinstance(content, str):
-            yield from self.flush_reasoning(reasoning_states, message_index)
             if content:
+                yield from self.flush_reasoning(reasoning_states, message_index)
                 yield StreamEvent(
                     type="text",
                     chunk=content,
@@ -608,7 +608,9 @@ class _Shared:
                         part_index=reasoning_states[message_index]["part_index"],
                         message_index=message_index,
                     )
-                if getattr(content_chunk, "closed", None):
+                # closed is a prefixing flag, repeated on ordinary text deltas.
+                # A signature seals a block; preserve it separately for replay.
+                if incoming.get("signature") is not None:
                     yield from self.flush_reasoning(reasoning_states, message_index)
             else:
                 yield from self.flush_reasoning(reasoning_states, message_index)
