@@ -1,0 +1,1 @@
+{"id":"bc80e472a0b4487e968505c3fd3c1d6a","created":1791298606,"model":"magistral-small-latest","usage":{"prompt_tokens":28,"total_tokens":32,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":0},"service_tier":"standard"},"object":"chat.completion","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","tool_calls":null,"content":"323"}}]}

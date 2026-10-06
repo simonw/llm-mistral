@@ -1,0 +1,47 @@
+{
+  "recorded_on": "2026-10-06",
+  "endpoint": "https://api.mistral.ai/v1/chat/completions",
+  "model": "magistral-small-latest",
+  "prompt": "What is 17 times 19? Answer briefly.",
+  "max_tokens": 512,
+  "fixtures": {
+    "magistral-stream.sse": {
+      "stream": true,
+      "reasoning_effort": "omitted"
+    },
+    "magistral-completion.json": {
+      "stream": false,
+      "reasoning_effort": "omitted"
+    },
+    "magistral-none-completion.json": {
+      "stream": false,
+      "reasoning_effort": "none"
+    },
+    "magistral-high-stream.sse": {
+      "stream": true,
+      "reasoning_effort": "high"
+    },
+    "magistral-high-completion.json": {
+      "stream": false,
+      "reasoning_effort": "high"
+    }
+  },
+  "prompt_mode_probe": {
+    "prompt_mode": "reasoning",
+    "stream": [
+      true,
+      false
+    ],
+    "status": 400,
+    "message": "Reasoning prompt mode is not enabled for this model"
+  },
+  "replay_probes": {
+    "prompt": "What is that result plus one? Answer only the number.",
+    "stream": false,
+    "reasoning_effort": "none",
+    "max_tokens": 64,
+    "streamed_history_result": "324",
+    "non_streamed_history_result": "324"
+  },
+  "notes": "Raw response bodies only; no authorization headers or credentials. Recorded fixtures are replayed offline in tests. Replay files contain the plugin-built message history and SDK response."
+}
