@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-mistral"
-version = "0.15"
+version = "0.16"
 description = "LLM plugin providing access to Mistral models using the Mistral API"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
