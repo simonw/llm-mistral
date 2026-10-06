@@ -1,0 +1,59 @@
+{
+  "request": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is 17 times 19? Answer briefly."
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "thinking": [
+              {
+                "text": "I need to calculate 17 multiplied by 19. Let me think about this step by step.\n\nFirst, I recall that multiplication can be broken down into simpler parts using the distributive property of multiplication over addition. So, I can think of 19 as (20 - 1). Therefore, 17 times 19 can be written as:\n\n17 \u00d7 19 = 17 \u00d7 (20 - 1) = (17 \u00d7 20) - (17 \u00d7 1)\n\nNow, let's calculate each part separately:\n\n1. 17 \u00d7 20:\n   - 17 \u00d7 20 is the same as 17 \u00d7 2 \u00d7 10.\n   - First, 17 \u00d7 2 = 34.\n   - Then, 34 \u00d7 10 = 340.\n\n2. 17 \u00d7 1:\n   - 17 \u00d7 1 = 17.\n\nNow, subtract the second part from the first:\n\n340 - 17 = 323.\n\nSo, 17 times 19 equals 323.",
+                "type": "text"
+              }
+            ],
+            "type": "thinking",
+            "closed": true
+          },
+          {
+            "type": "text",
+            "text": "323"
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": "What is that result plus one? Answer only the number."
+      }
+    ]
+  },
+  "response": {
+    "id": "16217710a21d4bb4875db00441a3bb6b",
+    "object": "chat.completion",
+    "model": "magistral-small-latest",
+    "usage": {
+      "prompt_tokens": 294,
+      "completion_tokens": 4,
+      "total_tokens": 298,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "service_tier": "standard"
+    },
+    "created": 1791298649,
+    "choices": [
+      {
+        "index": 0,
+        "finish_reason": "stop",
+        "message": {
+          "role": "assistant",
+          "content": "324",
+          "tool_calls": null
+        }
+      }
+    ]
+  }
+}

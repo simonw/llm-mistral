@@ -12,9 +12,8 @@ license = "Apache-2.0"
 requires-python = ">=3.10"
 classifiers = []
 dependencies = [
-    "llm>=0.26",
-    "httpx",
-    "httpx-sse",
+    "llm>=0.36",
+    "mistralai>=3.1.0",
 ]
 
 [project.urls]
@@ -26,12 +25,8 @@ CI = "https://github.com/simonw/llm-mistral/actions"
 [project.entry-points.llm]
 mistral = "llm_mistral"
 
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
 [dependency-groups]
-dev = ["cogapp", "pytest", "pytest-httpx", "pytest-asyncio"]
+dev = ["cogapp", "pytest", "httpx2-pytest>=2.0.0", "pytest-asyncio"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
