@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from llm.cli import cli
 from llm.parts import ReasoningPart, TextPart, ToolCallPart
 from pydantic import ValidationError
-from pytest_httpx import IteratorStream
+from pytest_httpx2 import IteratorStream
 
 from test_mistral import (
     TEST_MODELS,
@@ -23,7 +23,7 @@ from test_mistral import (
 @pytest.mark.parametrize("async_", [False, True])
 @pytest.mark.parametrize("stream", [False, True])
 def test_logged_reasoning_continuation(
-    reasoning_response, httpx_mock, monkeypatch, tmp_path, async_, stream
+    reasoning_response, httpx2_mock, monkeypatch, tmp_path, async_, stream
 ):
     monkeypatch.setenv("LLM_USER_PATH", str(tmp_path))
     (tmp_path / "mistral_models.json").write_text(json.dumps(TEST_MODELS))
@@ -40,7 +40,7 @@ def test_logged_reasoning_continuation(
     reasoning_response(stream)
     second = runner.invoke(cli, ["-c", "Follow up"] + flags)
     assert second.exit_code == 0, second.output
-    messages = json.loads(httpx_mock.get_requests()[1].content)["messages"]
+    messages = json.loads(httpx2_mock.get_requests()[1].content)["messages"]
     assert [m["role"] for m in messages] == ["system", "user", "assistant", "user"]
     assert messages[0]["content"] == "Be brief"
     assert messages[1]["content"] == "First question"
@@ -83,7 +83,7 @@ def test_redacted_reasoning_is_not_replayed():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("async_", [False, True])
 @pytest.mark.parametrize("stream", [False, True])
-async def test_thinking_then_tool_call(httpx_mock, async_, stream):
+async def test_thinking_then_tool_call(httpx2_mock, async_, stream):
     thinking = {
         "type": "thinking",
         "thinking": [{"type": "text", "text": "Use a tool."}],
@@ -117,13 +117,13 @@ async def test_thinking_then_tool_call(httpx_mock, async_, stream):
             ).encode()
             for delta in deltas
         ]
-        httpx_mock.add_response(
+        httpx2_mock.add_response(
             url="https://api.mistral.ai/v1/chat/completions#stream",
             stream=IteratorStream(chunks + [b"data: [DONE]\n\n"]),
             headers={"content-type": "text/event-stream"},
         )
     else:
-        httpx_mock.add_response(
+        httpx2_mock.add_response(
             url="https://api.mistral.ai/v1/chat/completions",
             json={
                 **base,
@@ -174,16 +174,16 @@ async def test_thinking_then_tool_call(httpx_mock, async_, stream):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("async_", [False, True])
 @pytest.mark.parametrize("stream", [False, True])
-async def test_recorded_magistral_response(httpx_mock, async_, stream):
+async def test_recorded_magistral_response(httpx2_mock, async_, stream):
     root = Path(__file__).parent / "fixtures" / "reasoning"
     if stream:
-        httpx_mock.add_response(
+        httpx2_mock.add_response(
             url="https://api.mistral.ai/v1/chat/completions#stream",
             stream=IteratorStream([(root / "magistral-stream.sse").read_bytes()]),
             headers={"content-type": "text/event-stream"},
         )
     else:
-        httpx_mock.add_response(
+        httpx2_mock.add_response(
             url="https://api.mistral.ai/v1/chat/completions",
             json=json.loads((root / "magistral-completion.json").read_text()),
         )
@@ -197,12 +197,12 @@ async def test_recorded_magistral_response(httpx_mock, async_, stream):
 
 
 @pytest.fixture
-def recorded_high(httpx_mock):
+def recorded_high(httpx2_mock):
     def add(stream):
         root = Path(__file__).parent / "fixtures" / "reasoning"
         if stream:
             data = (root / "magistral-high-stream.sse").read_bytes()
-            httpx_mock.add_response(
+            httpx2_mock.add_response(
                 url="https://api.mistral.ai/v1/chat/completions#stream",
                 stream=IteratorStream([data]),
                 headers={"content-type": "text/event-stream"},
@@ -221,7 +221,7 @@ def recorded_high(httpx_mock):
             ]
         else:
             data = json.loads((root / "magistral-high-completion.json").read_text())
-            httpx_mock.add_response(
+            httpx2_mock.add_response(
                 url="https://api.mistral.ai/v1/chat/completions", json=data
             )
             chunks = data["choices"][0]["message"]["content"]
@@ -355,7 +355,7 @@ def test_reasoning_fallback_without_cache(monkeypatch, tmp_path, async_):
 @pytest.mark.parametrize("async_", [False, True])
 @pytest.mark.parametrize("stream", [False, True])
 async def test_redacted_reasoning_omitted_from_request(
-    reasoning_response, httpx_mock, async_, stream
+    reasoning_response, httpx2_mock, async_, stream
 ):
     from llm.parts import assistant, user
 
@@ -375,7 +375,7 @@ async def test_redacted_reasoning_omitted_from_request(
     else:
         response.text()
     assert (
-        json.loads(httpx_mock.get_request().content)["messages"][1]["content"]
+        json.loads(httpx2_mock.get_request().content)["messages"][1]["content"]
         == "Answer"
     )
 

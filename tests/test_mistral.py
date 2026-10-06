@@ -1,7 +1,7 @@
 import json
 import pathlib
 import pytest
-from pytest_httpx import IteratorStream
+from pytest_httpx2 import IteratorStream
 import llm
 from llm.parts import ReasoningPart, StreamEvent, TextPart, ToolCallPart
 from llm.tools import llm_version
@@ -78,8 +78,8 @@ def mock_env(monkeypatch, llm_user_path):
     )
 
 
-def test_caches_models(monkeypatch, tmpdir, httpx_mock):
-    httpx_mock.add_response(
+def test_caches_models(monkeypatch, tmpdir, httpx2_mock):
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/models",
         method="GET",
         json=TEST_MODELS,
@@ -93,13 +93,13 @@ def test_caches_models(monkeypatch, tmpdir, httpx_mock):
     llm.get_models_with_aliases()
     assert path.exists()
     # Should have called that API
-    response = httpx_mock.get_request()
+    response = httpx2_mock.get_request()
     assert response.url == "https://api.mistral.ai/v1/models"
 
 
 @pytest.fixture
-def mocked_stream(httpx_mock):
-    httpx_mock.add_response(
+def mocked_stream(httpx2_mock):
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions#stream",
         method="POST",
         stream=IteratorStream(
@@ -112,11 +112,11 @@ def mocked_stream(httpx_mock):
         ),
         headers={"content-type": "text/event-stream"},
     )
-    return httpx_mock
+    return httpx2_mock
 
 
 @pytest.fixture
-def mocked_tool_stream(httpx_mock):
+def mocked_tool_stream(httpx2_mock):
     # First response - when model is called with tools
     chunks1 = [
         b'data: {"id":"755aa30c9826400b818018ed9a0d4f62","object":"chat.completion.chunk","created":1748464326,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
@@ -136,7 +136,7 @@ def mocked_tool_stream(httpx_mock):
     ]
 
     # Add first response
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions#stream",
         method="POST",
         stream=IteratorStream(chunks1),
@@ -144,19 +144,19 @@ def mocked_tool_stream(httpx_mock):
     )
 
     # Add second response
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions#stream",
         method="POST",
         stream=IteratorStream(chunks2),
         headers={"content-type": "text/event-stream"},
     )
 
-    return httpx_mock
+    return httpx2_mock
 
 
 @pytest.fixture
-def mocked_no_stream(httpx_mock):
-    httpx_mock.add_response(
+def mocked_no_stream(httpx2_mock):
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions",
         method="POST",
         json={
@@ -177,7 +177,7 @@ def mocked_no_stream(httpx_mock):
             "usage": {"prompt_tokens": 16, "total_tokens": 79, "completion_tokens": 63},
         },
     )
-    return httpx_mock
+    return httpx2_mock
 
 
 def test_stream(mocked_stream):
@@ -293,8 +293,8 @@ def test_explicit_messages(mocked_no_stream):
     ]
 
 
-def test_reasoning_parts_and_replay(httpx_mock):
-    httpx_mock.add_response(
+def test_reasoning_parts_and_replay(httpx2_mock):
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions",
         method="POST",
         json={
@@ -326,7 +326,7 @@ def test_reasoning_parts_and_replay(httpx_mock):
             },
         },
     )
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions",
         method="POST",
         json={
@@ -358,7 +358,7 @@ def test_reasoning_parts_and_replay(httpx_mock):
 
     second = first.reply("Are you sure?", stream=False)
     assert second.text() == "Yes."
-    second_request = json.loads(httpx_mock.get_requests()[1].content)
+    second_request = json.loads(httpx2_mock.get_requests()[1].content)
     assistant_content = second_request["messages"][1]["content"]
     assert assistant_content[0] == {
         "type": "thinking",
@@ -368,13 +368,13 @@ def test_reasoning_parts_and_replay(httpx_mock):
     assert assistant_content[1] == {"type": "text", "text": "The answer is 42."}
 
 
-def test_streaming_reasoning_preserves_complete_block(httpx_mock):
+def test_streaming_reasoning_preserves_complete_block(httpx2_mock):
     chunks = [
         b'data: {"id":"reasoning-stream","model":"magistral-small-latest","choices":[{"index":0,"delta":{"content":[{"type":"thinking","thinking":[{"type":"text","text":"Work "}]}]},"finish_reason":null}]}\n\n',
         b'data: {"id":"reasoning-stream","model":"magistral-small-latest","choices":[{"index":0,"delta":{"content":[{"type":"thinking","thinking":[{"type":"text","text":"it out."}],"signature":"stream-signature","closed":true},{"type":"text","text":"The answer."}]},"finish_reason":"stop"}],"usage":{"prompt_tokens":8,"completion_tokens":6,"total_tokens":14}}\n\n',
         b"data: [DONE]\n\n",
     ]
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions#stream",
         method="POST",
         stream=IteratorStream(chunks),
@@ -410,13 +410,13 @@ def test_streaming_reasoning_preserves_complete_block(httpx_mock):
     assert isinstance(parts[1], TextPart)
 
 
-def test_split_streaming_tool_arguments(httpx_mock):
+def test_split_streaming_tool_arguments(httpx2_mock):
     chunks = [
         b'data: {"id":"tool-stream","model":"mistral-medium","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"lookup","arguments":"{\\"value\\":"}}]},"finish_reason":null}]}\n\n',
         b'data: {"id":"tool-stream","model":"mistral-medium","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"","arguments":"42}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n',
         b"data: [DONE]\n\n",
     ]
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions#stream",
         method="POST",
         stream=IteratorStream(chunks),
@@ -517,8 +517,8 @@ def test_local_audio_attachment_uses_sdk_shape(mocked_stream):
     ]
 
 
-def test_sdk_errors_are_model_errors(httpx_mock):
-    httpx_mock.add_response(
+def test_sdk_errors_are_model_errors(httpx2_mock):
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/chat/completions#stream",
         method="POST",
         status_code=401,
@@ -529,8 +529,8 @@ def test_sdk_errors_are_model_errors(httpx_mock):
         model.prompt("Hello").text()
 
 
-def test_embeddings_use_sdk(httpx_mock):
-    httpx_mock.add_response(
+def test_embeddings_use_sdk(httpx2_mock):
+    httpx2_mock.add_response(
         url="https://api.mistral.ai/v1/embeddings",
         method="POST",
         json={
@@ -550,7 +550,7 @@ def test_embeddings_use_sdk(httpx_mock):
     )
     model = llm.get_embedding_model("mistral-embed")
     assert model.embed_batch(["one", "two"]) == [[0.1, 0.2], [0.3, 0.4]]
-    request = httpx_mock.get_request()
+    request = httpx2_mock.get_request()
     assert json.loads(request.content) == {
         "model": "mistral-embed",
         "input": ["one", "two"],
@@ -558,7 +558,7 @@ def test_embeddings_use_sdk(httpx_mock):
 
 
 @pytest.fixture
-def reasoning_response(httpx_mock):
+def reasoning_response(httpx2_mock):
     def add(stream):
         blocks = [
             {
@@ -615,13 +615,13 @@ def reasoning_response(httpx_mock):
                 ).encode()
                 for content in contents
             ]
-            httpx_mock.add_response(
+            httpx2_mock.add_response(
                 url="https://api.mistral.ai/v1/chat/completions#stream",
                 stream=IteratorStream(chunks + [b"data: [DONE]\n\n"]),
                 headers={"content-type": "text/event-stream"},
             )
         else:
-            httpx_mock.add_response(
+            httpx2_mock.add_response(
                 url="https://api.mistral.ai/v1/chat/completions",
                 json={
                     **base,
@@ -648,7 +648,7 @@ def reasoning_response(httpx_mock):
     "effort", [None, "none", "minimal", "low", "medium", "high", "xhigh"]
 )
 async def test_reasoning_options_and_replay(
-    reasoning_response, httpx_mock, async_, stream, effort
+    reasoning_response, httpx2_mock, async_, stream, effort
 ):
     blocks = reasoning_response(stream)
     get_model = llm.get_async_model if async_ else llm.get_model
@@ -673,7 +673,7 @@ async def test_reasoning_options_and_replay(
         "first-signature",
         "second-signature",
     ]
-    request = json.loads(httpx_mock.get_requests()[0].content)
+    request = json.loads(httpx2_mock.get_requests()[0].content)
     if effort:
         assert request["reasoning_effort"] == effort
     else:
@@ -687,7 +687,7 @@ async def test_reasoning_options_and_replay(
     else:
         followup = response.reply("Continue", stream=stream)
         followup.text()
-    replay = json.loads(httpx_mock.get_requests()[1].content)["messages"][1]["content"]
+    replay = json.loads(httpx2_mock.get_requests()[1].content)["messages"][1]["content"]
     # Streaming keeps the provider's text fragments intact for signed replay.
     if stream:
         blocks[0]["thinking"] = [
