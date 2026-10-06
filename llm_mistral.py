@@ -375,6 +375,8 @@ class _Shared:
             if isinstance(part, TextPart):
                 chunks.append({"type": "text", "text": part.text})
             elif isinstance(part, ReasoningPart):
+                if part.redacted and not part.text:
+                    continue
                 chunks.append(self._reasoning_chunk(part))
             elif isinstance(part, AttachmentPart) and part.attachment:
                 chunks.append(_attachment_chunk(part.attachment))

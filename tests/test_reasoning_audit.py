@@ -1,4 +1,4 @@
-"""Regression probes for the reasoning spec; xfails document confirmed gaps."""
+"""Regression coverage for reasoning parsing, validation, and replay."""
 
 import json
 from pathlib import Path
@@ -72,10 +72,6 @@ def test_non_reasoning_model_rejects_options(option, value, monkeypatch, tmp_pat
         model.Options(**{option: value})
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Empty redacted reasoning is currently replayed as an empty thinking chunk",
-)
 def test_redacted_reasoning_is_not_replayed():
     model = llm.get_model("mistral-tiny")
     assert (
@@ -355,3 +351,48 @@ def test_reasoning_fallback_without_cache(monkeypatch, tmp_path, async_):
     get_model = llm.get_async_model if async_ else llm.get_model
     assert "reasoning_effort" in get_model("magistral-small").Options.model_fields
     assert "prompt_mode" not in get_model("mistral-small").Options.model_fields
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("async_", [False, True])
+@pytest.mark.parametrize("stream", [False, True])
+async def test_redacted_reasoning_omitted_from_request(
+    reasoning_response, httpx_mock, async_, stream
+):
+    from llm.parts import assistant, user
+
+    reasoning_response(stream)
+    response = (llm.get_async_model if async_ else llm.get_model)(
+        "mistral-tiny"
+    ).prompt(
+        messages=[
+            user("First"),
+            assistant(ReasoningPart(text="", redacted=True), TextPart(text="Answer")),
+            user("Continue"),
+        ],
+        stream=stream,
+    )
+    if async_:
+        await response.text()
+    else:
+        response.text()
+    assert (
+        json.loads(httpx_mock.get_request().content)["messages"][1]["content"]
+        == "Answer"
+    )
+
+
+def test_empty_signed_reasoning_is_still_replayed():
+    model = llm.get_model("mistral-tiny")
+    assert model._content_from_parts(
+        [
+            ReasoningPart(
+                text="",
+                provider_metadata={"mistral": {"signature": "opaque-signature"}},
+            ),
+            TextPart(text="Answer"),
+        ]
+    ) == [
+        {"type": "thinking", "thinking": [], "signature": "opaque-signature"},
+        {"type": "text", "text": "Answer"},
+    ]
