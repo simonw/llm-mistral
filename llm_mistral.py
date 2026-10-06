@@ -79,9 +79,12 @@ def register_models(register):
         aliases = [alias] if alias else []
         schemas = "codestral-mamba" not in model_id
         tools = capabilities.get("function_calling", our_model_id in tool_models)
+        reasoning = capabilities.get("reasoning", model_id.startswith("magistral-"))
         register(
-            Mistral(our_model_id, model_id, vision, schemas, tools, audio),
-            AsyncMistral(our_model_id, model_id, vision, schemas, tools, audio),
+            Mistral(our_model_id, model_id, vision, schemas, tools, audio, reasoning),
+            AsyncMistral(
+                our_model_id, model_id, vision, schemas, tools, audio, reasoning
+            ),
             aliases=aliases,
         )
 
@@ -247,16 +250,6 @@ class _Shared:
     key_env_var = "LLM_MISTRAL_KEY"
 
     class Options(llm.Options):
-        reasoning_effort: Optional[
-            Literal["none", "minimal", "low", "medium", "high", "xhigh"]
-        ] = Field(
-            description="Reasoning effort for supported models: none, minimal, low, medium, high or xhigh.",
-            default=None,
-        )
-        prompt_mode: Optional[Literal["reasoning"]] = Field(
-            description="Use Mistral's reasoning system prompt for reasoning models.",
-            default=None,
-        )
         temperature: Optional[float] = Field(
             description=(
                 "Determines the sampling temperature. Higher values like 0.8 increase randomness, "
@@ -297,9 +290,32 @@ class _Shared:
             default=None,
         )
 
-    def __init__(self, our_model_id, mistral_model_id, vision, schemas, tools, audio):
+    class ReasoningOptions(Options):
+        reasoning_effort: Optional[
+            Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+        ] = Field(
+            description="Reasoning effort for supported models: none, minimal, low, medium, high or xhigh.",
+            default=None,
+        )
+        prompt_mode: Optional[Literal["reasoning"]] = Field(
+            description="Use Mistral's reasoning system prompt for reasoning models.",
+            default=None,
+        )
+
+    def __init__(
+        self,
+        our_model_id,
+        mistral_model_id,
+        vision,
+        schemas,
+        tools,
+        audio,
+        reasoning=False,
+    ):
         self.model_id = our_model_id
         self.mistral_model_id = mistral_model_id
+        if reasoning:
+            self.Options = self.ReasoningOptions
         attachment_types = set()
         if vision:
             attachment_types.update(
@@ -434,9 +450,9 @@ class _Shared:
             "model": self.mistral_model_id,
             "messages": messages,
         }
-        if prompt.options.reasoning_effort is not None:
+        if getattr(prompt.options, "reasoning_effort", None) is not None:
             kwargs["reasoning_effort"] = prompt.options.reasoning_effort
-        if prompt.options.prompt_mode is not None:
+        if getattr(prompt.options, "prompt_mode", None) is not None:
             kwargs["prompt_mode"] = prompt.options.prompt_mode
         if prompt.options.temperature is not None:
             kwargs["temperature"] = prompt.options.temperature

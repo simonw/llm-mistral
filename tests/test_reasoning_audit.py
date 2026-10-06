@@ -53,9 +53,6 @@ def test_logged_reasoning_continuation(
     assert messages[2]["content"][-1] == {"type": "text", "text": "The answer."}
 
 
-@pytest.mark.xfail(
-    strict=True, reason="Reasoning options are currently offered on every model"
-)
 @pytest.mark.parametrize(
     "option,value", [("reasoning_effort", "high"), ("prompt_mode", "reasoning")]
 )
@@ -251,7 +248,7 @@ def recorded_high(httpx_mock):
 async def test_recorded_magistral_thinking_is_preserved(recorded_high, async_, stream):
     expected = recorded_high(stream)
     response = (llm.get_async_model if async_ else llm.get_model)(
-        "mistral-tiny"
+        "mistral/magistral-test"
     ).prompt(
         "What is 17 times 19? Answer briefly.", stream=stream, reasoning_effort="high"
     )
@@ -315,3 +312,46 @@ def test_vision_attachment_is_preserved(mocked_stream):
         {"type": "text", "text": "Describe"},
         {"type": "image_url", "image_url": "data:image/png;base64,ZmFrZSBpbWFnZQ=="},
     ]
+
+
+@pytest.mark.parametrize("async_", [False, True])
+@pytest.mark.parametrize(
+    "model_id,capabilities,expected",
+    [
+        ("reasoning-model", {"reasoning": True}, True),
+        ("plain-model", {"reasoning": False}, False),
+        ("plain-model", {}, False),
+        ("magistral-test", {}, True),
+        ("magistral-test", {"reasoning": False}, False),
+    ],
+)
+def test_reasoning_capabilities(
+    monkeypatch, tmp_path, async_, model_id, capabilities, expected
+):
+    monkeypatch.setenv("LLM_USER_PATH", str(tmp_path))
+    (tmp_path / "mistral_models.json").write_text(
+        json.dumps(
+            {
+                "data": [
+                    {
+                        "id": model_id,
+                        "capabilities": {"completion_chat": True, **capabilities},
+                    }
+                ]
+            }
+        )
+    )
+    model = (llm.get_async_model if async_ else llm.get_model)("mistral/" + model_id)
+    fields = model.Options.model_fields
+    assert ("reasoning_effort" in fields) is expected
+    assert ("prompt_mode" in fields) is expected
+    assert "temperature" in fields
+
+
+@pytest.mark.parametrize("async_", [False, True])
+def test_reasoning_fallback_without_cache(monkeypatch, tmp_path, async_):
+    monkeypatch.setenv("LLM_USER_PATH", str(tmp_path))
+    monkeypatch.setattr(llm, "get_key", lambda *args: None)
+    get_model = llm.get_async_model if async_ else llm.get_model
+    assert "reasoning_effort" in get_model("magistral-small").Options.model_fields
+    assert "prompt_mode" not in get_model("mistral-small").Options.model_fields

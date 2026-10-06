@@ -9,6 +9,13 @@ from llm.tools import llm_version
 TEST_MODELS = {
     "data": [
         {
+            "id": "magistral-test",
+            "type": "base",
+            "name": "Magistral Test",
+            "description": "A reasoning model",
+            "capabilities": {"completion_chat": True, "reasoning": True},
+        },
+        {
             "id": "mistral-tiny",
             "type": "base",
             "capabilities": {"completion_chat": True, "function_calling": True},
@@ -644,7 +651,9 @@ async def test_reasoning_options_and_replay(
     blocks = reasoning_response(stream)
     get_model = llm.get_async_model if async_ else llm.get_model
     options = {"reasoning_effort": effort, "prompt_mode": "reasoning"} if effort else {}
-    response = get_model("mistral-tiny").prompt("Think", stream=stream, **options)
+    response = get_model("mistral/magistral-test").prompt(
+        "Think", stream=stream, **options
+    )
     if async_:
         assert await response.text() == "The answer."
         messages = await response.messages()
@@ -692,10 +701,9 @@ async def test_reasoning_options_and_replay(
 )
 def test_invalid_reasoning_options(option, value):
     from pydantic import ValidationError
-    from llm_mistral import Mistral
 
     with pytest.raises(ValidationError):
-        Mistral.Options(**{option: value})
+        llm.get_model("mistral/magistral-test").Options(**{option: value})
 
 
 @pytest.mark.parametrize("async_", [False, True])
@@ -706,7 +714,15 @@ def test_reasoning_cli_display(reasoning_response, async_, stream, hide):
     from llm.cli import cli
 
     reasoning_response(stream)
-    args = ["-m", "mistral-tiny", "Think", "-o", "reasoning_effort", "high", "--no-log"]
+    args = [
+        "-m",
+        "mistral/magistral-test",
+        "Think",
+        "-o",
+        "reasoning_effort",
+        "high",
+        "--no-log",
+    ]
     if async_:
         args.append("--async")
     if not stream:
