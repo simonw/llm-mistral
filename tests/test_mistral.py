@@ -469,12 +469,14 @@ def test_zero_and_false_options(mocked_stream):
     assert body["max_tokens"] == 0
 
 
-def test_safe_mode_is_a_legacy_alias(mocked_stream):
-    model = llm.get_model("mistral-tiny")
-    model.prompt("How are you?", safe_mode=True).text()
-    body = json.loads(mocked_stream.get_request().content)
-    assert body["safe_prompt"] is True
-    assert "safe_mode" not in body
+@pytest.mark.parametrize("async_", [False, True])
+@pytest.mark.parametrize("model_id", ["mistral-tiny", "mistral/magistral-test"])
+def test_safe_mode_is_rejected(async_, model_id):
+    from pydantic import ValidationError
+
+    model = (llm.get_async_model if async_ else llm.get_model)(model_id)
+    with pytest.raises(ValidationError, match="safe_mode"):
+        model.Options(safe_mode=True)
 
 
 def test_schema_uses_sdk_without_mutating_input(mocked_stream):

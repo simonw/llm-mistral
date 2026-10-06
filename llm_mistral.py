@@ -277,10 +277,6 @@ class _Shared:
             description="Whether to inject a safety prompt before all conversations.",
             default=None,
         )
-        safe_mode: Optional[bool] = Field(
-            description="Deprecated alias for safe_prompt.",
-            default=None,
-        )
         random_seed: Optional[int] = Field(
             description="Sets the seed for random sampling to generate deterministic results.",
             default=None,
@@ -462,11 +458,8 @@ class _Shared:
             kwargs["top_p"] = prompt.options.top_p
         if prompt.options.max_tokens is not None:
             kwargs["max_tokens"] = prompt.options.max_tokens
-        safe_prompt = prompt.options.safe_prompt
-        if safe_prompt is None:
-            safe_prompt = prompt.options.safe_mode
-        if safe_prompt is not None:
-            kwargs["safe_prompt"] = safe_prompt
+        if prompt.options.safe_prompt is not None:
+            kwargs["safe_prompt"] = prompt.options.safe_prompt
         if prompt.options.random_seed is not None:
             kwargs["random_seed"] = prompt.options.random_seed
         if prompt.schema:

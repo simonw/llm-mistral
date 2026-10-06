@@ -125,7 +125,7 @@ Options are passed using `-o name value` syntax. Availability depends on the mod
 - `-o temperature 0.7`: The sampling temperature, between 0 and 1. Higher increases randomness, lower values are more focused and deterministic.
 - `-o top_p 0.1`: 0.1 means consider only tokens in the top 10% probability mass. Use this or temperature but not both.
 - `-o max_tokens 20`: Maximum number of tokens to generate in the completion.
-- `-o safe_prompt 1`: Injects Mistral's safety prompt before the conversation. The older `safe_mode` option remains available as an alias.
+- `-o safe_prompt 1`: Injects Mistral's safety prompt before the conversation. This replaces the removed `safe_mode` option; update existing commands to use `safe_prompt`.
 - `-o random_seed 123`: Set an integer random seed to generate deterministic results.
 - `-o prefix 'Prefix here`: Set a prefix that will be used for the start of the response. Try `{` to encourage JSON or `GlaDOS: ` to encourage a roleplay from a specific character.
 
