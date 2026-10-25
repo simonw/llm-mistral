@@ -261,6 +261,172 @@ def test_tools_stream(mocked_tool_stream):
     assert output == "The installed version of LLM is 0.26."
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("async_", [False, True])
+@pytest.mark.parametrize(
+    "stream,argument_objects", [(False, False), (False, True), (True, False)]
+)
+@pytest.mark.parametrize("same_name", [False, True])
+async def test_parallel_tool_calls_and_reply(
+    httpx2_mock, async_, stream, argument_objects, same_name
+):
+    names = ["weather", "weather" if same_name else "forecast"]
+    calls = [
+        {
+            "id": call_id,
+            "type": "function",
+            "function": {
+                "name": name,
+                "arguments": {"city": city}
+                if argument_objects
+                else json.dumps({"city": city}),
+            },
+        }
+        for call_id, name, city in zip(
+            ["callParis", "callLondo"], names, ["Paris", "London"]
+        )
+    ]
+    base = {
+        "id": "parallel-tools",
+        "object": "chat.completion",
+        "model": "mistral-tiny",
+        "created": 1702614202,
+    }
+    usage = {"prompt_tokens": 8, "completion_tokens": 12, "total_tokens": 20}
+    if stream:
+        # Later chunks contain only one call; its list position is always zero.
+        deltas = [
+            {
+                "tool_calls": [
+                    {
+                        **call,
+                        "index": index,
+                        "function": {"name": names[index], "arguments": ""},
+                    }
+                    for index, call in enumerate(calls)
+                ]
+            },
+            {
+                "tool_calls": [
+                    {
+                        "index": 1,
+                        "function": {"name": "", "arguments": '{"city": "London"}'},
+                    }
+                ]
+            },
+            {
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "function": {"name": "", "arguments": '{"city": "Paris"}'},
+                    }
+                ]
+            },
+        ]
+        chunks = [
+            {
+                **base,
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+            }
+            for delta in deltas
+        ]
+        chunks.append(
+            {
+                **base,
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
+                "usage": usage,
+            }
+        )
+        httpx2_mock.add_response(
+            url="https://api.mistral.ai/v1/chat/completions#stream",
+            method="POST",
+            stream=IteratorStream(
+                [
+                    *(f"data: {json.dumps(chunk)}\n\n".encode() for chunk in chunks),
+                    b"data: [DONE]\n\n",
+                ]
+            ),
+            headers={"content-type": "text/event-stream"},
+        )
+    else:
+        # Complete responses omit the optional per-call streaming index.
+        httpx2_mock.add_response(
+            url="https://api.mistral.ai/v1/chat/completions",
+            method="POST",
+            json={
+                **base,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": calls,
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ],
+                "usage": usage,
+            },
+        )
+    model = (llm.get_async_model if async_ else llm.get_model)("mistral-tiny")
+    first = model.prompt("Get weather for Paris and London", stream=stream)
+    if async_:
+        await first.text()
+        actual_calls = await first.tool_calls()
+    else:
+        first.text()
+        actual_calls = first.tool_calls()
+    assert [
+        (call.tool_call_id, call.name, call.arguments) for call in actual_calls
+    ] == [
+        ("callParis", names[0], {"city": "Paris"}),
+        ("callLondo", names[1], {"city": "London"}),
+    ]
+    httpx2_mock.add_response(
+        url="https://api.mistral.ai/v1/chat/completions",
+        method="POST",
+        json={
+            **base,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "Done"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": usage,
+        },
+    )
+    results = [
+        llm.ToolResult(name=call.name, output=output, tool_call_id=call.tool_call_id)
+        for call, output in zip(actual_calls, ["Sunny", "Rainy"])
+    ]
+    if async_:
+        second = await first.reply(tool_results=results, stream=False)
+        assert await second.text() == "Done"
+    else:
+        second = first.reply(tool_results=results, stream=False)
+        assert second.text() == "Done"
+    body = json.loads(httpx2_mock.get_requests()[-1].content)
+    assert body["messages"][-2:] == [
+        {
+            "role": "tool",
+            "name": names[0],
+            "tool_call_id": "callParis",
+            "content": "Sunny",
+        },
+        {
+            "role": "tool",
+            "name": names[1],
+            "tool_call_id": "callLondo",
+            "content": "Rainy",
+        },
+    ]
+
+
 def test_stream_events_usage_and_response_json(mocked_stream):
     model = llm.get_model("mistral-tiny")
     response = model.prompt("How are you?")

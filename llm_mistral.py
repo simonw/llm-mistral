@@ -628,12 +628,13 @@ class _Shared:
                     )
 
     def gather_tool_call_events(
-        self, gathered, tool_calls, part_indexes, message_index=0
+        self, gathered, tool_calls, part_indexes, message_index=0, *, complete=False
     ):
         if not isinstance(tool_calls, list):
             return
         for position, tool_call in enumerate(tool_calls):
-            index = getattr(tool_call, "index", position)
+            # The SDK defaults omitted indexes to zero in complete responses.
+            index = position if complete else getattr(tool_call, "index", position)
             if not isinstance(index, int):
                 index = position
             key = (message_index, index)
@@ -730,7 +731,7 @@ class _Shared:
                 index = position
             yield from self.content_events(message.content, part_indexes, index)
             yield from self.gather_tool_call_events(
-                gathered, message.tool_calls, part_indexes, index
+                gathered, message.tool_calls, part_indexes, index, complete=True
             )
         self.finalize_tool_calls(response, gathered)
 
