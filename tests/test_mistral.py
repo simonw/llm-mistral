@@ -189,8 +189,6 @@ def test_stream(mocked_stream):
     assert json.loads(request.content) == {
         "model": "mistral-tiny",
         "messages": [{"role": "user", "content": "How are you?"}],
-        "temperature": 0.7,
-        "top_p": 1,
         "stream": True,
     }
 
@@ -205,8 +203,6 @@ async def test_stream_async(mocked_stream):
     assert json.loads(request.content) == {
         "model": "mistral-tiny",
         "messages": [{"role": "user", "content": "How are you?"}],
-        "temperature": 0.7,
-        "top_p": 1,
         "stream": True,
     }
 
