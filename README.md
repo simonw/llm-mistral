@@ -121,7 +121,7 @@ Hiding reasoning only changes its display; use `-o reasoning_effort none` to dis
 Options are passed using `-o name value` syntax. Availability depends on the model:
 
 - `-o reasoning_effort high`: Reasoning effort: `none`, `minimal`, `low`, `medium`, `high` or `xhigh`.
-- `-o temperature 0.7`: The sampling temperature, between 0 and 1. Higher increases randomness, lower values are more focused and deterministic.
+- `-o temperature 0.7`: The sampling temperature, between 0 and 1. Higher increases randomness, lower values are more focused and deterministic. Defaults to the model's own default temperature.
 - `-o top_p 0.1`: 0.1 means consider only tokens in the top 10% probability mass. Use this or temperature but not both.
 - `-o max_tokens 20`: Maximum number of tokens to generate in the completion.
 - `-o safe_prompt 1`: Injects Mistral's safety prompt before the conversation. This replaces the removed `safe_mode` option; update existing commands to use `safe_prompt`.

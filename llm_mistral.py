@@ -257,7 +257,7 @@ class _Shared:
             ),
             ge=0,
             le=1,
-            default=0.7,
+            default=None,
         )
         top_p: Optional[float] = Field(
             description=(
@@ -266,7 +266,7 @@ class _Shared:
             ),
             ge=0,
             le=1,
-            default=1,
+            default=None,
         )
         max_tokens: Optional[int] = Field(
             description="The maximum number of tokens to generate in the completion.",
